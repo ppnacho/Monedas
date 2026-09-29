@@ -2,26 +2,8 @@ import { supabaseClient } from './supabaseClient.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     cargarEmisores();
-    cargarCategorias();
-    cargarTiposMedalla();
-
-    const categorySelect = document.getElementById('category');
-    const medalContainer = document.getElementById('medal-container');
-    
-    if (categorySelect && medalContainer) {
-        categorySelect.addEventListener('change', (e) => {
-            const valorSeleccionado = e.target.value.toLowerCase();
-            
-            // Mostramos el contenedor de medallas si se selecciona exonumia u otra categoría de medallas
-            if (valorSeleccionado === 'exonumia' || valorSeleccionado.includes('medal')) {
-                medalContainer.style.display = 'flex'; // Mantiene el diseño del formulario
-            } else {
-                medalContainer.style.display = 'none';
-                const medalTypeSelect = document.getElementById('medal_type');
-                if (medalTypeSelect) medalTypeSelect.value = '';
-            }
-        });
-    }
+    cargarCategoriasFijas();
+    cargarTiposMedallaFijos();
 
     const searchForm = document.getElementById('searchForm');
     if (searchForm) {
@@ -41,7 +23,7 @@ function asegurarArray(data) {
     return [];
 }
 
-// Carga de emisores mediante la API oficial de Numista (/issuers)
+// 1. Carga de emisores (países) mediante el único endpoint oficial disponible (/issuers)
 async function cargarEmisores() {
     const issuerSelect = document.getElementById('issuer');
     if (!issuerSelect) return;
@@ -66,18 +48,18 @@ async function cargarEmisores() {
     }
 }
 
-// Categorías oficiales soportadas por la API v3 de Numista
-function cargarCategorias() {
+// 2. Categorías oficiales admitidas por la estructura de parámetros de la API v3
+function cargarCategoriasFijas() {
     const categorySelect = document.getElementById('category');
     if (!categorySelect) return;
 
-    const categoriasOficiales = [
+    const categorias = [
         { id: 'coin', name: 'Moneda' },
-        { id: 'banknote', name: 'Billetes' },
-        { id: 'exonumia', name: 'Exonumia / Medallas' }
+        { id: 'banknote', name: 'Billete' },
+        { id: 'exonumia', name: 'Exonumia' }
     ];
 
-    categoriasOficiales.forEach(cat => {
+    categorias.forEach(cat => {
         const option = document.createElement('option');
         option.value = cat.id;
         option.textContent = cat.name;
@@ -85,20 +67,19 @@ function cargarCategorias() {
     });
 }
 
-// Tipos de medalla oficiales soportados para filtrado en la API v3 de Numista
-function cargarTiposMedalla() {
+// 3. Tipos o subcategorías oficiales estándar para medallas / exonumia
+function cargarTiposMedallaFijos() {
     const medalTypeSelect = document.getElementById('medal_type');
     if (!medalTypeSelect) return;
 
-    const tiposMedallaOficiales = [
+    const tiposMedalla = [
         { id: 'commemorative', name: 'Conmemorativa' },
         { id: 'religious', name: 'Religiosa' },
         { id: 'military', name: 'Militar' },
-        { id: 'jeton', name: 'Ficha / Jetón' },
-        { id: 'pantry', name: 'Ficha de necesidad' }
+        { id: 'jeton', name: 'Ficha / Jetón' }
     ];
 
-    tiposMedallaOficiales.forEach(type => {
+    tiposMedalla.forEach(type => {
         const option = document.createElement('option');
         option.value = type.id;
         option.textContent = type.name;
@@ -106,6 +87,7 @@ function cargarTiposMedalla() {
     });
 }
 
+// Búsqueda de piezas enviando los parámetros directamente al endpoint /types de la API v3
 async function buscarMonedas(e) {
     e.preventDefault(); 
 
@@ -128,9 +110,7 @@ async function buscarMonedas(e) {
         if (issuer) params.issuer = issuer; 
         if (yearInput) params.year = yearInput;
         if (category) params.category = category; 
-        
-        // Si la categoría es exonumia y hay un tipo de medalla seleccionado, se añade el parámetro
-        if (category === 'exonumia' && medalType) {
+        if (medalType && category === 'exonumia') {
             params.medal_type = medalType;
         }
 
