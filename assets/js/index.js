@@ -1,20 +1,56 @@
 // Importa el cliente configurado desde tu módulo
 import { supabaseClient } from './supabaseClient.js';
 
-// Event listener cuando el DOM esté cargado (asociado al formulario)
+// Event listener cuando el DOM esté cargado
 document.addEventListener('DOMContentLoaded', () => {
+    cargarEmisores(); // Carga la lista desplegable al iniciar
+
     const searchForm = document.getElementById('searchForm');
     if (searchForm) {
         searchForm.addEventListener('submit', buscarMonedas);
     }
 });
 
-async function buscarMonedas(e) {
-    e.preventDefault(); // Evita que la página se recargue al enviar el formulario
+// Función para obtener la lista de emisores desde la Edge Function
+async function cargarEmisores() {
+    const issuerSelect = document.getElementById('issuer');
+    if (!issuerSelect) return;
 
-    // Coincidencia exacta con los IDs del index.html (q, issuer, year)
+    try {
+        // Llamada a la API de Numista usando el endpoint 'issuers'
+        const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
+            body: {
+                endpoint: 'issuers',
+                params: {}
+            }
+        });
+
+        if (error) throw error;
+
+        // Parseo seguro de la lista de emisores (según el formato de la API v3)
+        const issuers = Array.isArray(data) ? data : (data.issuers || data.results || []);
+
+        // Rellenar el select ordenándolos alfabéticamente por nombre
+        issuers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        issuers.forEach(issuer => {
+            const option = document.createElement('option');
+            // Numista suele requerir el 'code' (ej: 'espagne') o el 'id' como valor del filtro
+            option.value = issuer.code || issuer.id; 
+            option.textContent = issuer.name || issuer.code;
+            issuerSelect.appendChild(option);
+        });
+
+    } catch (err) {
+        console.error("No se pudieron cargar los emisores:", err);
+    }
+}
+
+async function buscarMonedas(e) {
+    e.preventDefault(); 
+
     const query = document.getElementById('q').value.trim();
-    const issuer = document.getElementById('issuer').value.trim();
+    const issuer = document.getElementById('issuer').value; // Valor seleccionado del desplegable
     const yearInput = document.getElementById('year') ? document.getElementById('year').value.trim() : '';
     
     const loading = document.getElementById('loading');
@@ -24,16 +60,14 @@ async function buscarMonedas(e) {
     resultsDiv.innerHTML = '<p class="text-gray-500">Buscando...</p>';
 
     try {
-        // Construcción de los parámetros específicos para la API v3 de Numista
         const params = {};
         if (query) params.q = query;
-        if (issuer) params.issuer = issuer; // Numista usa 'issuer' para país/autoridad emisora
-        if (yearInput) params.year = yearInput; // Parámetro de año soportado en la v3
+        if (issuer) params.issuer = issuer; // Envía el código exacto del emisor seleccionado
+        if (yearInput) params.year = yearInput;
 
-        // Llamada a la Edge Function de Supabase usando el nombre correcto del cliente
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: {
-                endpoint: 'types', // Endpoint oficial v3 para búsqueda de tipos de monedas/billetes
+                endpoint: 'types',
                 params: params
             }
         });
@@ -44,7 +78,6 @@ async function buscarMonedas(e) {
         
         console.log("Respuesta de Numista:", data);
 
-        // Parseo seguro de la respuesta según el formato de la API v3
         const monedas = Array.isArray(data) ? data : (data.types || data.coins || data.results || []);
 
         if (monedas.length === 0) {
@@ -52,7 +85,7 @@ async function buscarMonedas(e) {
             return;
         }
 
-        resultsDiv.innerHTML = ''; // Limpiar contenedor
+        resultsDiv.innerHTML = ''; 
 
         monedas.forEach(coin => {
             const card = document.createElement('div');
@@ -62,7 +95,6 @@ async function buscarMonedas(e) {
             const coinTitle = coin.title || coin.name || 'Sin título';
             const issuerName = coin.issuer?.name || coin.issuer || 'Desconocido';
             
-            // URLs para anverso y reverso (con una imagen por defecto si no existe alguna)
             const obverseImg = coin.obverse_thumbnail || 'https://via.placeholder.com/75?text=Sin+Anverso';
             const reverseImg = coin.reverse_thumbnail || 'https://via.placeholder.com/75?text=Sin+Reverso';
 
@@ -81,7 +113,6 @@ async function buscarMonedas(e) {
             resultsDiv.appendChild(card);
         });
 
-        // Añadir eventos a los botones generados dinámicamente
         document.querySelectorAll('.add-collection-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 const numistaId = e.target.getAttribute('data-id');
@@ -98,5 +129,4 @@ async function buscarMonedas(e) {
 
 function agregarAMiColeccion(numistaId) {
     alert(`Aquí guardarás la moneda N#${numistaId} en tu tabla user_collection de Supabase.`);
-    // Próximo paso: Realizar un supabaseClient.from('user_collection').insert({...})
 }
