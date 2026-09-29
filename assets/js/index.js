@@ -10,13 +10,26 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (categorySelect && medalContainer) {
         categorySelect.addEventListener('change', (e) => {
-            const valorSeleccionado = e.target.value;
-            // Mostramos el selector si la categoría es exonumia o contiene la palabra medal/exonumia
-            if (valorSeleccionado === 'exonumia' || valorSeleccionado.includes('medal')) {
-                medalContainer.style.display = 'flex'; // Usamos flex para mantener el diseño del form-group
+            const selectedOption = categorySelect.options[categorySelect.selectedIndex];
+            const valorSeleccionado = e.target.value.toLowerCase();
+            const textoSeleccionado = selectedOption ? selectedOption.textContent.toLowerCase() : '';
+            
+            // Comprobación flexible por valor o texto visible para mostrar el selector de medallas
+            const esMedallaOExonumia = 
+                valorSeleccionado === 'exonumia' || 
+                valorSeleccionado.includes('medal') || 
+                valorSeleccionado.includes('medalla') || 
+                valorSeleccionado.includes('exonumia') ||
+                textoSeleccionado.includes('medal') || 
+                textoSeleccionado.includes('medalla') || 
+                textoSeleccionado.includes('exonumia');
+
+            if (esMedallaOExonumia) {
+                medalContainer.style.display = 'flex'; // Mantiene el diseño del form-group
             } else {
                 medalContainer.style.display = 'none';
-                document.getElementById('medal_type').value = '';
+                const medalTypeSelect = document.getElementById('medal_type');
+                if (medalTypeSelect) medalTypeSelect.value = '';
             }
         });
     }
@@ -61,14 +74,12 @@ async function cargarCategorias() {
         
         if (error) throw error;
 
-        // La API puede devolver un array directo o un objeto con propiedades contenedoras
         const categories = Array.isArray(data) 
             ? data 
             : (data.object_types || data.types || data.results || Object.values(data)[0] || []);
 
         categories.forEach(cat => {
             const option = document.createElement('option');
-            // Numista suele usar un identificador numérico o un código para object_type
             option.value = cat.id || cat.code; 
             option.textContent = cat.name || cat.title;
             categorySelect.appendChild(option);
@@ -77,7 +88,6 @@ async function cargarCategorias() {
     } catch (err) {
         console.error("No se pudieron cargar las categorías desde la API, usando respaldo:", err);
         
-        // Respaldo por seguridad en caso de fallo de red
         const categoriasFijas = [
             { id: 'coin', name: 'Moneda' },
             { id: 'banknote', name: 'Billetes' },
@@ -118,14 +128,14 @@ async function cargarTiposMedalla() {
     } catch (err) {
         console.error("No se pudieron cargar los tipos de medallas desde la API, usando respaldo:", err);
         
-        // Respaldo por seguridad con tipos comunes de medallas/exonumia
         const medallasFijas = [
             { id: 'commemorative', name: 'Conmemorativa' },
             { id: 'religious', name: 'Religiosa' },
             { id: 'military', name: 'Militar' }
         ];
 
-        medallasFijas.forEac(type => {
+        // Corregido el error tipográfico previo (forEac -> forEach)
+        medallasFijas.forEach(type => {
             const option = document.createElement('option');
             option.value = type.id;
             option.textContent = type.name;
@@ -140,7 +150,9 @@ async function buscarMonedas(e) {
     const query = document.getElementById('q').value.trim();
     const issuer = document.getElementById('issuer').value;
     const yearInput = document.getElementById('year') ? document.getElementById('year').value.trim() : '';
-    const category = document.getElementById('category') ? document.getElementById('category').value : '';
+    const categorySelect = document.getElementById('category');
+    const category = categorySelect ? categorySelect.value : '';
+    const categoryText = categorySelect && categorySelect.options[categorySelect.selectedIndex] ? categorySelect.options[categorySelect.selectedIndex].textContent.toLowerCase() : '';
     const medalType = document.getElementById('medal_type') ? document.getElementById('medal_type').value : '';
     
     const loading = document.getElementById('loading');
@@ -155,7 +167,13 @@ async function buscarMonedas(e) {
         if (issuer) params.issuer = issuer; 
         if (yearInput) params.year = yearInput;
         if (category) params.category = category; 
-        if (category === 'medal' && medalType) params.medal_type = medalType;
+        
+        // Enviamos el medal_type si la categoría seleccionada corresponde a medallas/exonumia
+        const esMedallaOExonumia = category === 'exonumia' || category.includes('medal') || categoryText.includes('medal') || categoryText.includes('medalla') || categoryText.includes('exonumia');
+        if (esMedallaOExonumia && medalType) {
+            params.medal_type = medalType;
+        }
+
         params.lang = 'es'; 
 
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
