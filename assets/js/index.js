@@ -10,22 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (categorySelect && medalContainer) {
         categorySelect.addEventListener('change', (e) => {
-            const selectedOption = categorySelect.options[categorySelect.selectedIndex];
             const valorSeleccionado = e.target.value.toLowerCase();
-            const textoSeleccionado = selectedOption ? selectedOption.textContent.toLowerCase() : '';
             
-            // Comprobación flexible por valor o texto visible para mostrar el selector de medallas
-            const esMedallaOExonumia = 
-                valorSeleccionado === 'exonumia' || 
-                valorSeleccionado.includes('medal') || 
-                valorSeleccionado.includes('medalla') || 
-                valorSeleccionado.includes('exonumia') ||
-                textoSeleccionado.includes('medal') || 
-                textoSeleccionado.includes('medalla') || 
-                textoSeleccionado.includes('exonumia');
-
-            if (esMedallaOExonumia) {
-                medalContainer.style.display = 'flex'; // Mantiene el diseño del form-group
+            // Mostramos el contenedor de medallas si se selecciona exonumia u otra categoría de medallas
+            if (valorSeleccionado === 'exonumia' || valorSeleccionado.includes('medal')) {
+                medalContainer.style.display = 'flex'; // Mantiene el diseño del formulario
             } else {
                 medalContainer.style.display = 'none';
                 const medalTypeSelect = document.getElementById('medal_type');
@@ -40,20 +29,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Función auxiliar robusta para transformar cualquier tipo de respuesta en un array iterable
+// Función auxiliar robusta para transformar respuestas en arrays
 function asegurarArray(data) {
     if (Array.isArray(data)) return data;
     if (!data) return [];
     if (typeof data === 'object') {
-        // Busca si alguna de las propiedades internas es un array
         const possibleArray = Object.values(data).find(val => Array.isArray(val));
         if (possibleArray) return possibleArray;
-        // Si es un objeto asociativo, extrae sus valores
         return Object.values(data);
     }
     return [];
 }
 
+// Carga de emisores mediante la API oficial de Numista (/issuers)
 async function cargarEmisores() {
     const issuerSelect = document.getElementById('issuer');
     if (!issuerSelect) return;
@@ -63,6 +51,7 @@ async function cargarEmisores() {
             body: { endpoint: 'issuers', params: { lang: 'es' } }
         });
         if (error) throw error;
+        
         const issuers = asegurarArray(data);
         issuers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
@@ -77,80 +66,44 @@ async function cargarEmisores() {
     }
 }
 
-async function cargarCategorias() {
+// Categorías oficiales soportadas por la API v3 de Numista
+function cargarCategorias() {
     const categorySelect = document.getElementById('category');
     if (!categorySelect) return;
 
-    try {
-        const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
-            body: { endpoint: 'object_types', params: { lang: 'es' } }
-        });
-        
-        if (error) throw error;
+    const categoriasOficiales = [
+        { id: 'coin', name: 'Moneda' },
+        { id: 'banknote', name: 'Billetes' },
+        { id: 'exonumia', name: 'Exonumia / Medallas' }
+    ];
 
-        const categories = asegurarArray(data);
-
-        categories.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.id || cat.code; 
-            option.textContent = cat.name || cat.title || cat.label;
-            categorySelect.appendChild(option);
-        });
-
-    } catch (err) {
-        console.error("No se pudieron cargar las categorías desde la API, usando respaldo:", err);
-        
-        const categoriasFijas = [
-            { id: 'coin', name: 'Moneda' },
-            { id: 'banknote', name: 'Billetes' },
-            { id: 'exonumia', name: 'Exonumia' }
-        ];
-
-        categoriasFijas.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.id;
-            option.textContent = cat.name;
-            categorySelect.appendChild(option);
-        });
-    }
+    categoriasOficiales.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = cat.name;
+        categorySelect.appendChild(option);
+    });
 }
 
-async function cargarTiposMedalla() {
+// Tipos de medalla oficiales soportados para filtrado en la API v3 de Numista
+function cargarTiposMedalla() {
     const medalTypeSelect = document.getElementById('medal_type');
     if (!medalTypeSelect) return;
 
-    try {
-        const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
-            body: { endpoint: 'medal_types', params: { lang: 'es' } }
-        });
-        
-        if (error) throw error;
+    const tiposMedallaOficiales = [
+        { id: 'commemorative', name: 'Conmemorativa' },
+        { id: 'religious', name: 'Religiosa' },
+        { id: 'military', name: 'Militar' },
+        { id: 'jeton', name: 'Ficha / Jetón' },
+        { id: 'pantry', name: 'Ficha de necesidad' }
+    ];
 
-        const medalTypes = asegurarArray(data);
-
-        medalTypes.forEach(type => {
-            const option = document.createElement('option');
-            option.value = type.id || type.code;
-            option.textContent = type.name || type.title || type.label;
-            medalTypeSelect.appendChild(option);
-        });
-
-    } catch (err) {
-        console.error("No se pudieron cargar los tipos de medallas desde la API, usando respaldo:", err);
-        
-        const medallasFijas = [
-            { id: 'commemorative', name: 'Conmemorativa' },
-            { id: 'religious', name: 'Religiosa' },
-            { id: 'military', name: 'Militar' }
-        ];
-
-        medallasFijas.forEach(type => {
-            const option = document.createElement('option');
-            option.value = type.id;
-            option.textContent = type.name;
-            medalTypeSelect.appendChild(option);
-        });
-    }
+    tiposMedallaOficiales.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type.id;
+        option.textContent = type.name;
+        medalTypeSelect.appendChild(option);
+    });
 }
 
 async function buscarMonedas(e) {
@@ -161,7 +114,6 @@ async function buscarMonedas(e) {
     const yearInput = document.getElementById('year') ? document.getElementById('year').value.trim() : '';
     const categorySelect = document.getElementById('category');
     const category = categorySelect ? categorySelect.value : '';
-    const categoryText = categorySelect && categorySelect.options[categorySelect.selectedIndex] ? categorySelect.options[categorySelect.selectedIndex].textContent.toLowerCase() : '';
     const medalType = document.getElementById('medal_type') ? document.getElementById('medal_type').value : '';
     
     const loading = document.getElementById('loading');
@@ -177,8 +129,8 @@ async function buscarMonedas(e) {
         if (yearInput) params.year = yearInput;
         if (category) params.category = category; 
         
-        const esMedallaOExonumia = category === 'exonumia' || category.includes('medal') || categoryText.includes('medal') || categoryText.includes('medalla') || categoryText.includes('exonumia');
-        if (esMedallaOExonumia && medalType) {
+        // Si la categoría es exonumia y hay un tipo de medalla seleccionado, se añade el parámetro
+        if (category === 'exonumia' && medalType) {
             params.medal_type = medalType;
         }
 
@@ -239,5 +191,5 @@ async function buscarMonedas(e) {
 }
 
 function agregarAMiColeccion(numistaId) {
-    alert(`Aquí guardarás la moneda N#${numistaId} en tu tabla user_collection de Supabase.`);
+    alert(`Aquí guardarás la pieza N#${numistaId} en tu tabla user_collection de Supabase.`);
 }
