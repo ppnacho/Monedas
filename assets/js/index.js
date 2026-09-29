@@ -3,7 +3,25 @@ import { supabaseClient } from './supabaseClient.js';
 
 // Event listener cuando el DOM esté cargado
 document.addEventListener('DOMContentLoaded', () => {
-    cargarEmisores(); // Carga la lista desplegable al iniciar
+    cargarEmisores();
+    cargarCategorias();
+    cargarTiposMedalla();
+
+    // Control dinámico: mostrar u ocultar el selector de medallas según la categoría elegida
+    const categorySelect = document.getElementById('category');
+    const medalContainer = document.getElementById('medal-container');
+    
+    if (categorySelect && medalContainer) {
+        categorySelect.addEventListener('change', (e) => {
+            // Si la categoría seleccionada es 'medal', mostramos el desplegable de sus 10 tipos
+            if (e.target.value === 'medal') {
+                medalContainer.style.display = 'block';
+            } else {
+                medalContainer.style.display = 'none';
+                document.getElementById('medal_type').value = ''; // Resetea si cambia de categoría
+            }
+        });
+    }
 
     const searchForm = document.getElementById('searchForm');
     if (searchForm) {
@@ -11,17 +29,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Función para obtener la lista de emisores desde la Edge Function
+// 1. Cargar emisores dinámicamente
 async function cargarEmisores() {
     const issuerSelect = document.getElementById('issuer');
     if (!issuerSelect) return;
 
     try {
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
-            body: {
-                endpoint: 'issuers',
-                params: { lang: 'es' } // <- Solicitamos los emisores en castellano
-            }
+            body: { endpoint: 'issuers', params: { lang: 'es' } }
         });
 
         if (error) throw error;
@@ -35,9 +50,59 @@ async function cargarEmisores() {
             option.textContent = issuer.name || issuer.code;
             issuerSelect.appendChild(option);
         });
-
     } catch (err) {
         console.error("No se pudieron cargar los emisores:", err);
+    }
+}
+
+// 2. Cargar categorías generales dinámicamente (coins, medals, tokens, banknotes)
+async function cargarCategorias() {
+    const categorySelect = document.getElementById('category');
+    if (!categorySelect) return;
+
+    try {
+        const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
+            body: { endpoint: 'object_types', params: { lang: 'es' } } // Endpoint v3 para tipos de objetos
+        });
+
+        if (error) throw error;
+
+        const categories = Array.isArray(data) ? data : (data.object_types || data.categories || data.results || []);
+
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            // Adaptado a la estructura de la v3 (ej. cat.code o cat.id)
+            option.value = cat.code || cat.name?.toLowerCase(); 
+            option.textContent = cat.name || cat.code;
+            categorySelect.appendChild(option);
+        });
+    } catch (err) {
+        console.error("No se pudieron cargar las categorías:", err);
+    }
+}
+
+// 3. Cargar los 10 tipos específicos de medallas dinámicamente
+async function cargarTiposMedalla() {
+    const medalTypeSelect = document.getElementById('medal_type');
+    if (!medalTypeSelect) return;
+
+    try {
+        const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
+            body: { endpoint: 'medal_types', params: { lang: 'es' } } // Endpoint v3 para subcategorías de medallas
+        });
+
+        if (error) throw error;
+
+        const medalTypes = Array.isArray(data) ? data : (data.medal_types || data.types || data.results || []);
+
+        medalTypes.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type.code || type.id;
+            option.textContent = type.name || type.code;
+            medalTypeSelect.appendChild(option);
+        });
+    } catch (err) {
+        console.error("No se pudieron cargar los tipos de medallas:", err);
     }
 }
 
@@ -47,6 +112,8 @@ async function buscarMonedas(e) {
     const query = document.getElementById('q').value.trim();
     const issuer = document.getElementById('issuer').value;
     const yearInput = document.getElementById('year') ? document.getElementById('year').value.trim() : '';
+    const category = document.getElementById('category') ? document.getElementById('category').value : '';
+    const medalType = document.getElementById('medal_type') ? document.getElementById('medal_type').value : '';
     
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
@@ -57,9 +124,16 @@ async function buscarMonedas(e) {
     try {
         const params = {};
         if (query) params.q = query;
-        if (issuer) params.issuer = issuer;
+        if (issuer) params.issuer = issuer; 
         if (yearInput) params.year = yearInput;
-        params.lang = 'es'; // <- Solicitamos los títulos y detalles de las monedas en castellano
+        if (category) params.category = category; 
+        
+        // Si está activa la categoría medalla y se seleccionó un subtipo específico
+        if (category === 'medal' && medalType) {
+            params.medal_type = medalType;
+        }
+
+        params.lang = 'es'; 
 
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: {
@@ -72,12 +146,10 @@ async function buscarMonedas(e) {
 
         if (loading) loading.classList.add('hidden');
         
-        console.log("Respuesta de Numista:", data);
-
         const monedas = Array.isArray(data) ? data : (data.types || data.coins || data.results || []);
 
         if (monedas.length === 0) {
-            resultsDiv.innerHTML = '<p class="text-gray-500 col-span-2">No se encontraron monedas con esos criterios.</p>';
+            resultsDiv.innerHTML = '<p class="text-gray-500 col-span-2">No se encontraron elementos con esos criterios.</p>';
             return;
         }
 
