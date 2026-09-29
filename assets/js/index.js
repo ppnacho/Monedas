@@ -58,13 +58,13 @@ async function buscarMonedas(e) {
             const card = document.createElement('div');
             card.className = 'border p-4 rounded-lg flex gap-4 items-center bg-gray-50 shadow-sm item';
             
-            // Adaptado a las propiedades devueltas por /types en la API v3
+            // Propiedades de la API v3 de Numista
             const coinId = coin.type_id || coin.id;
             const coinTitle = coin.title || coin.name || 'Sin título';
             const issuerName = coin.issuer?.name || coin.issuer || 'Desconocido';
             
-            // Extracción de la URL de la imagen con alternativas comunes en la API de Numista
-            const imageUrl = coin.image || coin.thumbnail || coin.img || 'https://via.placeholder.com/80?text=Sin+Imagen';
+            // Extracción correcta de la URL de la miniatura del anverso
+            const imageUrl = coin.obverse_thumbnail || coin.reverse_thumbnail || 'https://via.placeholder.com/80?text=Sin+Imagen';
 
             card.innerHTML = `
                 <div>
