@@ -168,8 +168,8 @@ async function buscarMonedas(e) {
 
             card.innerHTML = `
                 <div style="display: flex; gap: 8px;">
-                    <img src="${obverseImg}" alt="${coinTitle} - Anverso" title="Anverso" style="width: 70px; height: 70px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #e2e8f0;">
-                    <img src="${reverseImg}" alt="${coinTitle} - Reverso" title="Reverso" style="width: 70px; height: 70px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #e2e8f0;">
+                    <img src="${obverseImg}" alt="${coinTitle} - Anverso" title="Anverso" style="width: 105px; height: 105px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #e2e8f0;">
+                    <img src="${reverseImg}" alt="${coinTitle} - Reverso" title="Reverso" style="width: 105px; height: 105px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #e2e8f0;">
                 </div>
                 <div class="flex-1">
                     <h3 class="font-bold text-lg text-blue-900">${coinTitle}</h3>
