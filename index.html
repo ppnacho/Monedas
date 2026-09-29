@@ -3,29 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buscador de Monedas - Numista</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Cliente de Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>Buscador Numista v3</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 40px; 
+            background-color: #f4f4f9; 
+        }
+        .form-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+            max-width: 500px; 
+        }
+        .form-group { 
+            margin-bottom: 15px; 
+        }
+        label { 
+            display: block; 
+            margin-bottom: 5px; 
+            font-weight: bold; 
+        }
+        input[type="text"], input[type="number"] { 
+            width: 100%; 
+            padding: 8px; 
+            box-sizing: border-box; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+        }
+        button { 
+            background-color: #007BFF; 
+            color: white; 
+            border: none; 
+            padding: 10px 15px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        button:hover { 
+            background-color: #0056b3; 
+        }
+        #results { 
+            margin-top: 20px; 
+            max-width: 500px;
+        }
+        .item { 
+            background: white; 
+            padding: 12px; 
+            margin-bottom: 10px; 
+            border-radius: 4px; 
+            border-left: 4px solid #007BFF; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-6">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
-        <h1 class="text-2xl font-bold mb-4 text-gray-800">Catálogo Numista - Buscador</h1>
-        
-        <!-- Filtros de Búsqueda -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <input type="text" id="query" placeholder="Ej. 2 Euros, Peseta..." class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <input type="text" id="country" placeholder="Código País (ej. es, us)..." class="border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button id="search-btn" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors">Buscar en Numista</button>
+<body>
+
+<div class="form-container">
+    <h2>Buscar Monedas en Numista</h2>
+    <form id="searchForm">
+        <div class="form-group">
+            <label for="q">Descripción / Texto libre (`q`):</label>
+            <input type="text" id="q" placeholder="Ej. 1 Peseta, Republica...">
         </div>
+        <div class="form-group">
+            <label for="issuer">País / Emisor (`issuer`):</label>
+            <input type="text" id="issuer" placeholder="Ej. spain">
+        </div>
+        <div class="form-group">
+            <label for="year">Año (`year`):</label>
+            <input type="number" id="year" placeholder="Ej. 1892">
+        </div>
+        <button type="submit">Buscar</button>
+    </form>
+</div>
 
-        <!-- Resultados -->
-        <div id="loading" class="hidden text-center text-gray-500 py-4">Buscando monedas...</div>
-        <div id="results" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-    </div>
+<div id="results"></div>
 
-    <!-- Script principal de la aplicación -->
-    <script src="assets/js/index.js"></script>
+<!-- Enlace al archivo JavaScript externo -->
+<script src="assets/js/index.js"></script>
+
 </body>
 </html>
