@@ -1,9 +1,5 @@
-// Configuración de Supabase
-const SUPABASE_URL = 'https://gawrunepixcazeuelasw.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_f46kPmVleLt67O_1t7o-HQ_5ef6QFtq';
-
 // Inicialización del cliente
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { supabase } from './supabaseClient.js';
 
 // Event listener cuando el DOM esté cargado
 document.addEventListener('DOMContentLoaded', () => {
