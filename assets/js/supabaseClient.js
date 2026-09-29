@@ -7,7 +7,7 @@ const SUPABASE_URL = 'https://gawrunepixcazeuelasw.supabase.co';
 // 2. Pega aquí tu clave PÚBLICA (anon / public)
 const SUPABASE_ANON_KEY = 'sb_publishable_f46kPmVleLt67O_1t7o-HQ_5ef6QFtq';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     experimental: {
       passkey: true
