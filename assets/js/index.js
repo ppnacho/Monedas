@@ -58,17 +58,18 @@ async function buscarMonedas(e) {
             const card = document.createElement('div');
             card.className = 'border p-4 rounded-lg flex gap-4 items-center bg-gray-50 shadow-sm item';
             
-            // Propiedades de la API v3 de Numista
             const coinId = coin.type_id || coin.id;
             const coinTitle = coin.title || coin.name || 'Sin título';
             const issuerName = coin.issuer?.name || coin.issuer || 'Desconocido';
             
-            // Extracción correcta de la URL de la miniatura del anverso
-            const imageUrl = coin.obverse_thumbnail || coin.reverse_thumbnail || 'https://via.placeholder.com/80?text=Sin+Imagen';
+            // URLs para anverso y reverso (con una imagen por defecto si no existe alguna)
+            const obverseImg = coin.obverse_thumbnail || 'https://via.placeholder.com/75?text=Sin+Anverso';
+            const reverseImg = coin.reverse_thumbnail || 'https://via.placeholder.com/75?text=Sin+Reverso';
 
             card.innerHTML = `
-                <div>
-                    <img src="${imageUrl}" alt="${coinTitle}" style="width: 75px; height: 75px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #e2e8f0;">
+                <div style="display: flex; gap: 8px;">
+                    <img src="${obverseImg}" alt="${coinTitle} - Anverso" title="Anverso" style="width: 70px; height: 70px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #e2e8f0;">
+                    <img src="${reverseImg}" alt="${coinTitle} - Reverso" title="Reverso" style="width: 70px; height: 70px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #e2e8f0;">
                 </div>
                 <div class="flex-1">
                     <h3 class="font-bold text-lg text-blue-900">${coinTitle}</h3>
