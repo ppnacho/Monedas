@@ -122,6 +122,8 @@ async function buscarMonedas(e) {
             body: { endpoint: 'types', params: params }
         });
 
+        console.log("Datos devueltos con los parametros:", data);
+
         if (error) throw error;
         if (loading) loading.classList.add('hidden');
 
