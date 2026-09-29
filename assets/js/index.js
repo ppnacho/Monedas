@@ -33,6 +33,8 @@ async function cargarEmisores() {
             body: { endpoint: 'issuers', params: { lang: 'es' } }
         });
         if (error) throw error;
+
+        console.log("Datos devueltos por la Edge Function (Emisores):", data);
         
         const issuers = asegurarArray(data);
         issuers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
