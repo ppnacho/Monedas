@@ -62,8 +62,14 @@ async function buscarMonedas(e) {
             const coinId = coin.type_id || coin.id;
             const coinTitle = coin.title || coin.name || 'Sin título';
             const issuerName = coin.issuer?.name || coin.issuer || 'Desconocido';
+            
+            // Extracción de la URL de la imagen con alternativas comunes en la API de Numista
+            const imageUrl = coin.image || coin.thumbnail || coin.img || 'https://via.placeholder.com/80?text=Sin+Imagen';
 
             card.innerHTML = `
+                <div>
+                    <img src="${imageUrl}" alt="${coinTitle}" style="width: 75px; height: 75px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #e2e8f0;">
+                </div>
                 <div class="flex-1">
                     <h3 class="font-bold text-lg text-blue-900">${coinTitle}</h3>
                     <p class="text-sm text-gray-600">Emisor: ${issuerName}</p>
