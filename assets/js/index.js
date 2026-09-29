@@ -40,6 +40,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Función auxiliar robusta para transformar cualquier tipo de respuesta en un array iterable
+function asegurarArray(data) {
+    if (Array.isArray(data)) return data;
+    if (!data) return [];
+    if (typeof data === 'object') {
+        // Busca si alguna de las propiedades internas es un array
+        const possibleArray = Object.values(data).find(val => Array.isArray(val));
+        if (possibleArray) return possibleArray;
+        // Si es un objeto asociativo, extrae sus valores
+        return Object.values(data);
+    }
+    return [];
+}
+
 async function cargarEmisores() {
     const issuerSelect = document.getElementById('issuer');
     if (!issuerSelect) return;
@@ -49,7 +63,7 @@ async function cargarEmisores() {
             body: { endpoint: 'issuers', params: { lang: 'es' } }
         });
         if (error) throw error;
-        const issuers = Array.isArray(data) ? data : (data.issuers || data.results || []);
+        const issuers = asegurarArray(data);
         issuers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
         issuers.forEach(issuer => {
@@ -74,14 +88,12 @@ async function cargarCategorias() {
         
         if (error) throw error;
 
-        const categories = Array.isArray(data) 
-            ? data 
-            : (data.object_types || data.types || data.results || Object.values(data)[0] || []);
+        const categories = asegurarArray(data);
 
         categories.forEach(cat => {
             const option = document.createElement('option');
             option.value = cat.id || cat.code; 
-            option.textContent = cat.name || cat.title;
+            option.textContent = cat.name || cat.title || cat.label;
             categorySelect.appendChild(option);
         });
 
@@ -114,14 +126,12 @@ async function cargarTiposMedalla() {
         
         if (error) throw error;
 
-        const medalTypes = Array.isArray(data) 
-            ? data 
-            : (data.medal_types || data.types || data.results || Object.values(data)[0] || []);
+        const medalTypes = asegurarArray(data);
 
         medalTypes.forEach(type => {
             const option = document.createElement('option');
             option.value = type.id || type.code;
-            option.textContent = type.name || type.title;
+            option.textContent = type.name || type.title || type.label;
             medalTypeSelect.appendChild(option);
         });
 
@@ -134,7 +144,6 @@ async function cargarTiposMedalla() {
             { id: 'military', name: 'Militar' }
         ];
 
-        // Corregido el error tipográfico previo (forEac -> forEach)
         medallasFijas.forEach(type => {
             const option = document.createElement('option');
             option.value = type.id;
@@ -168,7 +177,6 @@ async function buscarMonedas(e) {
         if (yearInput) params.year = yearInput;
         if (category) params.category = category; 
         
-        // Enviamos el medal_type si la categoría seleccionada corresponde a medallas/exonumia
         const esMedallaOExonumia = category === 'exonumia' || category.includes('medal') || categoryText.includes('medal') || categoryText.includes('medalla') || categoryText.includes('exonumia');
         if (esMedallaOExonumia && medalType) {
             params.medal_type = medalType;
@@ -183,7 +191,7 @@ async function buscarMonedas(e) {
         if (error) throw error;
         if (loading) loading.classList.add('hidden');
 
-        const monedas = Array.isArray(data) ? data : (data.types || data.coins || data.results || []);
+        const monedas = asegurarArray(data);
 
         if (monedas.length === 0) {
             resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: var(--text-muted);">No se encontraron elementos con esos criterios.</p>';
