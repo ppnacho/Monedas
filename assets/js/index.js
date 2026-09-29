@@ -23,7 +23,7 @@ function asegurarArray(data) {
     return [];
 }
 
-// 1. Carga de emisores (países) mediante el único endpoint oficial disponible (/issuers)
+// 1. Carga de emisores (países)
 async function cargarEmisores() {
     const issuerSelect = document.getElementById('issuer');
     if (!issuerSelect) return;
@@ -48,7 +48,7 @@ async function cargarEmisores() {
     }
 }
 
-// 2. Categorías oficiales admitidas por la estructura de parámetros de la API v3
+// 2. Carga de categorías principales
 function cargarCategoriasFijas() {
     const categorySelect = document.getElementById('category');
     if (!categorySelect) return;
@@ -67,7 +67,7 @@ function cargarCategoriasFijas() {
     });
 }
 
-// 3. Tipos o subcategorías oficiales estándar para medallas / exonumia
+// 3. Carga de tipos de medalla / subcategorías
 function cargarTiposMedallaFijos() {
     const medalTypeSelect = document.getElementById('medal_type');
     if (!medalTypeSelect) return;
@@ -87,7 +87,7 @@ function cargarTiposMedallaFijos() {
     });
 }
 
-// Búsqueda de piezas enviando los parámetros directamente al endpoint /types de la API v3
+// Búsqueda de piezas enviando todos los parámetros seleccionados
 async function buscarMonedas(e) {
     e.preventDefault(); 
 
