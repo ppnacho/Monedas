@@ -56,17 +56,38 @@ async function cargarCategorias() {
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'object_types', params: { lang: 'es' } }
         });
+        
         if (error) throw error;
-        const categories = Array.isArray(data) ? data : (data.object_types || data.categories || data.results || []);
+
+        // La API puede devolver un array directo o un objeto con propiedades contenedoras
+        const categories = Array.isArray(data) 
+            ? data 
+            : (data.object_types || data.types || data.results || Object.values(data)[0] || []);
 
         categories.forEach(cat => {
             const option = document.createElement('option');
-            option.value = cat.code || cat.name?.toLowerCase(); 
-            option.textContent = cat.name || cat.code;
+            // Numista suele usar un identificador numérico o un código para object_type
+            option.value = cat.id || cat.code; 
+            option.textContent = cat.name || cat.title;
             categorySelect.appendChild(option);
         });
+
     } catch (err) {
-        console.error("No se pudieron cargar las categorías:", err);
+        console.error("No se pudieron cargar las categorías desde la API, usando respaldo:", err);
+        
+        // Respaldo por seguridad en caso de fallo de red
+        const categoriasFijas = [
+            { id: 'coin', name: 'Moneda' },
+            { id: 'banknote', name: 'Billetes' },
+            { id: 'exonumia', name: 'Exonumia' }
+        ];
+
+        categoriasFijas.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.name;
+            categorySelect.appendChild(option);
+        });
     }
 }
 
