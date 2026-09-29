@@ -17,25 +17,20 @@ async function cargarEmisores() {
     if (!issuerSelect) return;
 
     try {
-        // Llamada a la API de Numista usando el endpoint 'issuers'
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: {
                 endpoint: 'issuers',
-                params: {}
+                params: { lang: 'es' } // <- Solicitamos los emisores en castellano
             }
         });
 
         if (error) throw error;
 
-        // Parseo seguro de la lista de emisores (según el formato de la API v3)
         const issuers = Array.isArray(data) ? data : (data.issuers || data.results || []);
-
-        // Rellenar el select ordenándolos alfabéticamente por nombre
         issuers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
         issuers.forEach(issuer => {
             const option = document.createElement('option');
-            // Numista suele requerir el 'code' (ej: 'espagne') o el 'id' como valor del filtro
             option.value = issuer.code || issuer.id; 
             option.textContent = issuer.name || issuer.code;
             issuerSelect.appendChild(option);
@@ -50,7 +45,7 @@ async function buscarMonedas(e) {
     e.preventDefault(); 
 
     const query = document.getElementById('q').value.trim();
-    const issuer = document.getElementById('issuer').value; // Valor seleccionado del desplegable
+    const issuer = document.getElementById('issuer').value;
     const yearInput = document.getElementById('year') ? document.getElementById('year').value.trim() : '';
     
     const loading = document.getElementById('loading');
@@ -62,8 +57,9 @@ async function buscarMonedas(e) {
     try {
         const params = {};
         if (query) params.q = query;
-        if (issuer) params.issuer = issuer; // Envía el código exacto del emisor seleccionado
+        if (issuer) params.issuer = issuer;
         if (yearInput) params.year = yearInput;
+        params.lang = 'es'; // <- Solicitamos los títulos y detalles de las monedas en castellano
 
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: {
