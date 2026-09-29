@@ -10,8 +10,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (categorySelect && medalContainer) {
         categorySelect.addEventListener('change', (e) => {
-            if (e.target.value === 'medal') {
-                medalContainer.style.display = 'block';
+            const valorSeleccionado = e.target.value;
+            // Mostramos el selector si la categoría es exonumia o contiene la palabra medal/exonumia
+            if (valorSeleccionado === 'exonumia' || valorSeleccionado.includes('medal')) {
+                medalContainer.style.display = 'flex'; // Usamos flex para mantener el diseño del form-group
             } else {
                 medalContainer.style.display = 'none';
                 document.getElementById('medal_type').value = '';
@@ -99,17 +101,36 @@ async function cargarTiposMedalla() {
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'medal_types', params: { lang: 'es' } }
         });
+        
         if (error) throw error;
-        const medalTypes = Array.isArray(data) ? data : (data.medal_types || data.types || data.results || []);
+
+        const medalTypes = Array.isArray(data) 
+            ? data 
+            : (data.medal_types || data.types || data.results || Object.values(data)[0] || []);
 
         medalTypes.forEach(type => {
             const option = document.createElement('option');
-            option.value = type.code || type.id;
-            option.textContent = type.name || type.code;
+            option.value = type.id || type.code;
+            option.textContent = type.name || type.title;
             medalTypeSelect.appendChild(option);
         });
+
     } catch (err) {
-        console.error("No se pudieron cargar los tipos de medallas:", err);
+        console.error("No se pudieron cargar los tipos de medallas desde la API, usando respaldo:", err);
+        
+        // Respaldo por seguridad con tipos comunes de medallas/exonumia
+        const medallasFijas = [
+            { id: 'commemorative', name: 'Conmemorativa' },
+            { id: 'religious', name: 'Religiosa' },
+            { id: 'military', name: 'Militar' }
+        ];
+
+        medallasFijas.forEac(type => {
+            const option = document.createElement('option');
+            option.value = type.id;
+            option.textContent = type.name;
+            medalTypeSelect.appendChild(option);
+        });
     }
 }
 
