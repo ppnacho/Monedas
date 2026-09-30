@@ -1,95 +1,15 @@
 import { supabaseClient } from './supabaseClient.js';
 
-// Base de datos local de la taxonomía oficial de Numista para alimentar los selectores
-const TAXONOMIA_NUMISTA = {
-    coin: {
-        name: "Monedas",
-        subcategories: [
-            { id: "normal", name: "Monedas circulantes normales" },
-            { id: "commemorative", name: "Monedas circulantes conmemorativas" },
-            { id: "nclt", name: "Monedas no circulantes (NCLT)" },
-            { id: "collector", name: "Monedas de colección" },
-            { id: "emergency", name: "Monedas de emergencia" },
-            { id: "local", name: "Monedas locales" },
-            { id: "piefort", name: "Monedas de ensayo" },
-            { id: "contemporary_counterfeit", name: "Monedas falsas de época" },
-            { id: "protocurrency", name: "Protomonedas" }
-        ]
-    },
-    token: {
-        name: "Fichas",
-        subcategories: [
-            { id: "service", name: "Fichas de acceso a un servicio" },
-            { id: "dispenser", name: "Fichas de dispensador" },
-            { id: "commercial", name: "Fichas con valor comercial" },
-            { id: "tax", name: "Fichas de impuesto" },
-            { id: "spiritual", name: "Fichas espirituales" },
-            { id: "attendance", name: "Fichas de asistencia" },
-            { id: "utility", name: "Objetos de utilidad" },
-            { id: "bullion", name: "Bullion" }
-        ]
-    },
-    medal: {
-        name: "Medallas",
-        subcategories: [
-            { id: "award", name: "Medallas de condecoración" },
-            { id: "commemorative_medal", name: "Medallas conmemorativas" },
-            { id: "art", name: "Medallas artísticas" },
-            { id: "membership", name: "Medallas de membría" },
-            { id: "religious_medal", name: "Medallas religiosas" },
-            { id: "souvenir", name: "Medallones de recuerdo" },
-            { id: "collection", name: "Medallones de colección" },
-            { id: "advertising", name: "Medallones publicitarios" },
-            { id: "replica", name: "Réplicas de monedas" },
-            { id: "fantasy", name: "Monedas de fantasía" }
-        ]
-    },
-    banknote: {
-        name: "Billetes",
-        subcategories: [
-            { id: "normal_banknote", name: "Billetes circulantes normales" },
-            { id: "commemorative_banknote", name: "Billetes circulantes conmemorativos" },
-            { id: "collector_banknote", name: "Billetes no circulantes" },
-            { id: "local_banknote", name: "Billetes locales" },
-            { id: "emergency_banknote", name: "Billetes de emergencia" },
-            { id: "unissued", name: "Billetes no emitidos" },
-            { id: "essay_banknote", name: "Billetes de ensayo" }
-        ]
-    },
-    exonumia: {
-        name: "Exonumia de papel",
-        subcategories: [
-            { id: "paper_like", name: "Objetos similares a billetes" },
-            { id: "confinement", name: "Vales de confinamiento" },
-            { id: "currency_exchange", name: "Certificados de cambio de divisas" },
-            { id: "postal_order", name: "Giros postales" },
-            { id: "bill_of_exchange", name: "Letras de cambio" },
-            { id: "travelers_cheque", name: "Cheques de viaje" },
-            { id: "ration_coupon", name: "Cupones de racionamiento" },
-            { id: "trade_scrip", name: "Vales de comercio" }
-        ]
-    }
-};
-
 document.addEventListener('DOMContentLoaded', () => {
     cargarEmisores();
-    cargarCategoriasPrincipales();
-
-    // Evento para cambiar dinámicamente las subcategorías según la categoría elegida
-    const categorySelect = document.getElementById('category');
-    if (categorySelect) {
-        categorySelect.addEventListener('change', (e) => {
-            actualizarSubcategorias(e.target.value);
-        });
-    }
 
     const searchForm = document.getElementById('searchForm');
     if (searchForm) {
-        searchForm.addEventListener('submit', buscarMonedas);
+        searchForm.addEventListener('submit', probarConsultaEmisor);
     }
 });
 
-// Función auxiliar robusta para transformar respuestas en arrays
+// Función auxiliar para asegurar que manejamos arrays correctamente
 function asegurarArray(data) {
     if (Array.isArray(data)) return data;
     if (!data) return [];
@@ -101,7 +21,7 @@ function asegurarArray(data) {
     return [];
 }
 
-// 1. Carga de emisores (países)
+// 1. Cargar la lista de emisores en el desplegable
 async function cargarEmisores() {
     const issuerSelect = document.getElementById('issuer');
     if (!issuerSelect) return;
@@ -126,73 +46,26 @@ async function cargarEmisores() {
     }
 }
 
-// 2. Carga de categorías principales basadas en la taxonomía
-function cargarCategoriasPrincipales() {
-    const categorySelect = document.getElementById('category');
-    if (!categorySelect) return;
-
-    Object.keys(TAXONOMIA_NUMISTA).forEach(key => {
-        const option = document.createElement('option');
-        option.value = key;
-        option.textContent = TAXONOMIA_NUMISTA[key].name;
-        categorySelect.appendChild(option);
-    });
-}
-
-// 3. Actualizar el selector de subcategorías en función de la categoría seleccionada
-function actualizarSubcategorias(categoriaKey) {
-    const medalContainer = document.getElementById('medal-container');
-    const medalTypeSelect = document.getElementById('medal_type');
-    
-    if (!medalTypeSelect || !medalContainer) return;
-
-    // Limpiar opciones previas
-    medalTypeSelect.innerHTML = '<option value="">-- Todas las subcategorías --</option>';
-
-    if (categoriaKey && TAXONOMIA_NUMISTA[categoriaKey]) {
-        const subcategories = TAXONOMIA_NUMISTA[categoriaKey].subcategories;
-        
-        subcategories.forEach(sub => {
-            const option = document.createElement('option');
-            option.value = sub.id;
-            option.textContent = sub.name;
-            medalTypeSelect.appendChild(option);
-        });
-
-        // Mostrar el contenedor de subcategorías
-        medalContainer.style.display = 'block';
-    } else {
-        // Si no hay categoría seleccionada, podemos ocultarlo o dejarlo vacío
-        medalContainer.style.display = 'none';
-    }
-}
-
-// Búsqueda de piezas enviando todos los parámetros seleccionados
-async function buscarMonedas(e) {
+// 2. Realizar la consulta por emisor y mostrar los primeros registros en bruto
+async function probarConsultaEmisor(e) {
     e.preventDefault(); 
 
-    const query = document.getElementById('q').value.trim();
     const issuer = document.getElementById('issuer').value;
-    const yearInput = document.getElementById('year') ? document.getElementById('year').value.trim() : '';
-    const categorySelect = document.getElementById('category');
-    const category = categorySelect ? categorySelect.value : '';
-    const medalType = document.getElementById('medal_type') ? document.getElementById('medal_type').value : '';
-    
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
+
+    if (!issuer) {
+        alert("Por favor, selecciona un país o emisor primero.");
+        return;
+    }
 
     if (loading) loading.classList.remove('hidden');
     resultsDiv.innerHTML = '';
 
     try {
-        const params = {};
-        if (query) params.q = query;
-        if (issuer) params.issuer = issuer; 
-        if (yearInput) params.year = yearInput;
-        if (category) params.category = category; 
-        if (medalType) params.object_type = medalType; // Parámetro estándar para filtrar por subtipo de objeto en la API
+        const params = { issuer: issuer, lang: 'es' };
 
-        params.lang = 'es'; 
+        console.log("Consultando tipos para el emisor:", params);
 
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'types', params: params }
@@ -201,53 +74,50 @@ async function buscarMonedas(e) {
         if (error) throw error;
         if (loading) loading.classList.add('hidden');
 
-        const monedas = asegurarArray(data);
+        const registros = asegurarArray(data);
 
-        if (monedas.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: var(--text-muted);">No se encontraron elementos con esos criterios.</p>';
+        if (registros.length === 0) {
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para este emisor.</p>';
             return;
         }
 
-        monedas.forEach(coin => {
+        // Mostramos un mensaje indicando el total y recortamos a los primeros 5 o 10 registros para inspección
+        const muestra = registros.slice(0, 5); 
+
+        resultsDiv.innerHTML = `
+            <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <p><strong>Total de registros devueltos por la API:</strong> ${registros.length}</p>
+                <p style="font-size: 0.9em; color: gray;">Mostrando los primeros 5 elementos para inspeccionar su estructura en la consola del navegador (F12).</p>
+            </div>
+        `;
+
+        // Imprimimos el objeto completo del primer registro en la consola para que veas sus propiedades exactas
+        console.log("Estructura de un registro completo:", registros[0]);
+
+        muestra.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = 'item';
             
-            const coinId = coin.type_id || coin.id;
-            const coinTitle = coin.title || coin.name || 'Sin título';
-            const issuerName = coin.issuer?.name || coin.issuer || 'Desconocido';
-            
-            const obverseImg = coin.obverse_thumbnail || 'https://via.placeholder.com/105?text=Sin+Anverso';
-            const reverseImg = coin.reverse_thumbnail || 'https://via.placeholder.com/105?text=Sin+Reverso';
+            const title = item.title || item.name || 'Sin título';
+            const id = item.type_id || item.id || 'N/A';
+            const img = item.obverse_thumbnail || 'https://via.placeholder.com/105?text=Sin+Imagen';
 
             card.innerHTML = `
                 <div class="coin-images">
-                    <img src="${obverseImg}" alt="${coinTitle} - Anverso" title="Anverso">
-                    <img src="${reverseImg}" alt="${coinTitle} - Reverso" title="Reverso">
+                    <img src="${img}" alt="${title}">
                 </div>
                 <div class="coin-info">
-                    <h3 class="coin-title">${coinTitle}</h3>
-                    <p class="coin-meta">Emisor: ${issuerName}</p>
-                    <p class="coin-id">ID Numista: N#${coinId}</p>
-                    <button data-id="${coinId}" class="btn-add add-collection-btn">Añadir a mi colección</button>
+                    <h3 class="coin-title">[#${index + 1}] ${title}</h3>
+                    <p class="coin-meta">ID Numista: ${id}</p>
+                    <pre style="font-size: 0.75em; background: rgba(0,0,0,0.3); padding: 5px; overflow-x: auto;">${JSON.stringify(item, null, 2)}</pre>
                 </div>
             `;
             resultsDiv.appendChild(card);
         });
 
-        document.querySelectorAll('.add-collection-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const numistaId = e.target.getAttribute('data-id');
-                agregarAMiColeccion(numistaId);
-            });
-        });
-
     } catch (err) {
         if (loading) loading.classList.add('hidden');
-        console.error("Error completo:", err);
-        resultsDiv.innerHTML = `<p style="color: red; grid-column: 1 / -1; text-align: center;">Error al buscar: ${err.message}</p>`;
+        console.error("Error en la consulta:", err);
+        resultsDiv.innerHTML = `<p style="color: red; grid-column: 1 / -1; text-align: center;">Error: ${err.message}</p>`;
     }
-}
-
-function agregarAMiColeccion(numistaId) {
-    alert(`Aquí guardarás la pieza N#${numistaId} en tu tabla user_collection de Supabase.`);
 }
