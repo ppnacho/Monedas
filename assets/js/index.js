@@ -203,7 +203,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
     const categoryValue = document.getElementById('category')?.value;
     const subTypeVal = document.getElementById('object_type')?.value;
 
-    console.log("2. Filtros activos -> Categoría:", categoryValue, "| Subtipo ID:", subTypeVal);
+    console.log("2. Filtros activos -> Categoría:", categoryValue, "| Subtipo ID buscado:", subTypeVal);
 
     if (loading) loading.classList.remove('hidden');
     if (resultsDiv) resultsDiv.innerHTML = '';
@@ -215,7 +215,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
         let totalPaginasEstimadas = 1;
 
         do {
-            console.log(`--- Solicitando página ${paginaActual} de ${totalPaginasEstimadas} (aprox) a Supabase ---`);
             const params = { 
                 issuer: issuerCode, 
                 lang: 'es',
@@ -238,31 +237,35 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
             const registrosBloque = asegurarArray(data.types || data);
             totalApi = data.count || totalApi || registrosBloque.length;
-            
-            // Recalcular cuántas páginas totales hay en función del count que devuelve la API
             totalPaginasEstimadas = Math.ceil(totalApi / 50);
 
-            console.log(`Página ${paginaActual}/${totalPaginasEstimadas} | Obtenidos en bloque: ${registrosBloque.length} | Total acumulado hasta ahora: ${todosLosRegistros.length + registrosBloque.length} / ${totalApi}`);
-
-            if (registrosBloque.length === 0) {
-                console.log("⚠️ El bloque está vacío. Rompiendo bucle de paginación.");
-                break;
-            }
+            if (registrosBloque.length === 0) break;
 
             todosLosRegistros = todosLosRegistros.concat(registrosBloque);
 
-            // Condición de parada real basada en los datos de la API
             if (todosLosRegistros.length >= totalApi || registrosBloque.length < 50) {
-                console.log("✅ Se han descargado todos los registros disponibles en la API.");
                 break;
             }
 
             paginaActual++;
         } while (true);
 
-        if (loading) loading.classList.add('hidden');
-
         console.log(`3. Total acumulado final antes de filtrar: ${todosLosRegistros.length}`);
+
+        // --- CHIVATO DE SUBTIPOS DISPONIBLES ---
+        // Esto te mostrará en la consola un resumen de qué object_type.id vienen en los datos reales
+        const subtiposEncontrados = {};
+        todosLosRegistros.forEach(item => {
+            if (item.object_type) {
+                const id = item.object_type.id;
+                const name = item.object_type.name;
+                subtiposEncontrados[id] = { name: name, count: (subtiposEncontrados[id]?.count || 0) + 1 };
+            } else {
+                subtiposEncontrados['SIN_OBJECT_TYPE'] = (subtiposEncontrados['SIN_OBJECT_TYPE'] || 0) + 1;
+            }
+        });
+        console.log("🔍 Subtipos reales presentes en estos 3253 registros:", subtiposEncontrados);
+        // ----------------------------------------
 
         // Filtrado local por subtipo
         let registrosFiltrados = todosLosRegistros;
@@ -270,7 +273,8 @@ async function ejecutarConsultaEmisor(issuerCode) {
             console.log(`4. Aplicando filtro local para object_type.id === "${subTypeVal}"`);
             registrosFiltrados = todosLosRegistros.filter(item => {
                 const idSubtipoItem = item.object_type?.id;
-                return String(idSubtipoItem) === String(subTypeVal.trim());
+                // Probamos comparación flexible por si acaso viene como número o string
+                return idSubtipoItem == subTypeVal.trim();
             });
             console.log(`5. Total tras filtrado por subtipo: ${registrosFiltrados.length}`);
         } else {
