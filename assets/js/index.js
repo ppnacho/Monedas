@@ -82,8 +82,8 @@ function cargarCategoriasFijas() {
     const categoriasOficiales = [
         { value: 'coin', label: 'Monedas' },
         { value: 'banknote', label: 'Billetes' },
-        { value: 'token', label: 'Fichas' },
-        { value: 'medal', label: 'Medallas' },
+        { value: 'tokens', label: 'Fichas' },
+        { value: 'medals', label: 'Medallas' },
         { value: 'exonumia', label: 'Exonumia' }
     ];
 
