@@ -178,52 +178,46 @@ function filtrarSubtiposPorCategoria() {
     if (valorPrevio) {
         subTypeSelect.value = valorPrevio;
         if (subTypeSelect.value === "") {
-            // Si el valor previo ya no existe en la lista filtrada, lo reseteamos
             subTypeSelect.value = "";
         }
     }
 }
 
-// 5. Realizar la consulta por emisor, categoría y filtrado de subtipo en cliente
+// 5. Realizar la consulta enviando los parámetros directamente a la API de Numista
 async function ejecutarConsultaEmisor(issuerCode) {
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
     const categoryValue = document.getElementById('category')?.value;
-    const subTypeVal = document.getElementById('object_type')?.value; // El ID seleccionado (ej. 5)
+    const subTypeVal = document.getElementById('object_type')?.value;
 
     if (loading) loading.classList.remove('hidden');
     resultsDiv.innerHTML = '';
 
     try {
-        // Solicitamos a la API filtrando solo por emisor y categoría (si está seleccionada)
-        // para asegurarnos de traer todos los registros posibles y no perder los subtipos.
         const params = { issuer: issuerCode, lang: 'es' };
+        
         if (categoryValue) {
             params.category = categoryValue;
+        }
+        
+        // Enviamos directamente el ID del subtipo (ej: 5 para monedas locales) a la API
+        if (subTypeVal) {
+            params.object_type = Number(subTypeVal);
         }
         
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'types', params: params }
         });
 
-        console.log("Datos brutos recibidos de la API:", data);
+        console.log("Consultando datos con parámetros:", params, data);
 
         if (error) throw error;
         if (loading) loading.classList.add('hidden');
 
-        let registros = asegurarArray(data);
-
-        // FILTRADO EN CLIENTE: Si el usuario seleccionó un subtipo específico (ej. ID 5)
-        if (subTypeVal) {
-            registros = registros.filter(item => {
-                // Comprobamos las posibles rutas donde la API devuelve el ID del subtipo
-                const idSubtipoItem = item.object_type?.id || item.object_type_id || item.sub_type_id;
-                return String(idSubtipoItem) === String(subTypeVal);
-            });
-        }
+        const registros = asegurarArray(data);
 
         if (registros.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección de subtipo.</p>';
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección.</p>';
             return;
         }
 
@@ -231,7 +225,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p><strong>Total de registros encontrados:</strong> ${registros.length}</p>
+                <p><strong>Total de registros devueltos por la API:</strong> ${registros.length}</p>
                 <p style="font-size: 0.9em; color: gray;">Mostrando los primeros 5 elementos.</p>
             </div>
         `;
