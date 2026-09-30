@@ -188,13 +188,13 @@ async function ejecutarConsultaEmisor(issuerCode) {
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
     const categoryValue = document.getElementById('category')?.value;
-    const subTypeVal = document.getElementById('object_type')?.value; // Ej: ID de subtipo (ej. "5")
+    const subTypeVal = document.getElementById('object_type')?.value; // Ej: "5"
 
     if (loading) loading.classList.remove('hidden');
     resultsDiv.innerHTML = '';
 
     try {
-        // Parámetros oficiales soportados por la API v3 de Numista (/types)
+        // Consultamos la API limpiamente SIN inventar parámetros que devuelven 0
         const params = { 
             issuer: issuerCode, 
             lang: 'es',
@@ -205,31 +205,38 @@ async function ejecutarConsultaEmisor(issuerCode) {
             params.category = categoryValue;
         }
 
-        // ¡Aquí está la clave! Pasamos object_type directamente a la API oficial de Numista
-        if (subTypeVal && subTypeVal.trim() !== "") {
-            params.object_type = subTypeVal;
-        }
-
-        // Llamada a tu Edge Function de Supabase
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'types', params: params }
         });
-
-        console.log("Respuesta oficial obtenida con filtro de subtipo:", data);
 
         if (error) throw error;
         if (loading) loading.classList.add('hidden');
 
         let registros = asegurarArray(data.types || data);
 
+        // IMPRESIÓN DE DEBUGEO: Inspeccionamos el primer objeto completo para ver cómo llama Numista al subtipo
+        if (registros.length > 0) {
+            console.log("ESTRUCTURA DE UN ITEM:", registros[0]);
+        }
+
+        // Filtrado en cliente usando una búsqueda flexible dentro del objeto
+        if (subTypeVal && subTypeVal.trim() !== "") {
+            registros = registros.filter(item => {
+                // Buscamos si el ID del subtipo coincide en cualquier propiedad relacionada
+                const tipoObj = item.object_type || item.type || item.sub_type;
+                const idComparar = typeof tipoObj === 'object' ? tipoObj?.id : tipoObj;
+                return String(idComparar) === String(subTypeVal);
+            });
+        }
+
         if (registros.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros con este subtipo para este emisor.</p>';
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No hay registros en esta página que coincidan con este subtipo (prueba a revisar la consola).</p>';
             return;
         }
 
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p><strong>Total global en Numista:</strong> ${data.count || 'N/A'} | <strong>Mostrados:</strong> ${registros.length}</p>
+                <p><strong>Total global en Numista:</strong> ${data.count || 'N/A'} | <strong>Filtrados en esta página:</strong> ${registros.length}</p>
             </div>
         `;
 
