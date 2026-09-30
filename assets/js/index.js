@@ -80,10 +80,10 @@ function cargarCategoriasFijas() {
     categorySelect.innerHTML = '<option value="">-- Todas las categorías --</option>';
 
     const categoriasOficiales = [
-        { value: 'Coin', label: 'Monedas' },
+        { value: 'coin', label: 'Monedas' },
         { value: 'banknote', label: 'Billetes' },
-        { value: 'Tokens', label: 'Fichas' },
-        { value: 'Medals', label: 'Medallas' },
+        { value: 'token', label: 'Fichas' },
+        { value: 'medal', label: 'Medallas' },
         { value: 'exonumia', label: 'Exonumia' }
     ];
 
