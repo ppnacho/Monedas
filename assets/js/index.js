@@ -30,7 +30,7 @@ async function cargarEmisores() {
             body: { endpoint: 'issuers', params: { lang: 'es' } }
         });
 
-        console.log("Consultando tipos para el emisor:", data);
+        console.log("Consultando cargar emisores:", data);
         
         if (error) throw error;
         
@@ -76,6 +76,8 @@ async function ejecutarConsultaEmisor(issuerCode) {
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'types', params: params }
         });
+
+        console.log("Consultando datos del emisor:", data);
 
         if (error) throw error;
         if (loading) loading.classList.add('hidden');
