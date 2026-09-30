@@ -184,7 +184,6 @@ function filtrarSubtiposPorCategoria() {
 }
 
 // 5. Realizar la consulta por emisor y categoría, filtrando el subtipo en JavaScript
-// 5. Realizar la consulta pidiendo un bloque amplio y filtrando el subtipo en cliente
 async function ejecutarConsultaEmisor(issuerCode) {
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
@@ -195,18 +194,19 @@ async function ejecutarConsultaEmisor(issuerCode) {
     resultsDiv.innerHTML = '';
 
     try {
-        // Pedimos el emisor y un count alto para que el bloque de resultados incluya todo lo necesario
         const params = { 
             issuer: issuerCode, 
-            lang: 'es',
-            count: 1000 // Ampliamos el límite para capturar suficientes registros y que no se queden fuera las monedas locales
+            lang: 'es' 
         };
         
         if (categoryValue) {
             params.category = categoryValue;
         }
         
-        // NO enviamos object_type en la URL para evitar el { count: 0 } de la API
+        // Usamos 'st' que es el parámetro oficial de Numista para el subtipo
+        if (subTypeVal) {
+            params.st = subTypeVal;
+        }
         
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'types', params: params }
@@ -219,16 +219,13 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
         let registros = asegurarArray(data);
 
-        // FILTRADO ESTRICTO EN CLIENTE: Comparamos el ID del objeto object_type
-        if (subTypeVal) {
-            registros = registros.filter(item => {
-                const idSubtipoItem = item.object_type?.id;
-                return String(idSubtipoItem) === String(subTypeVal);
-            });
+        // Si la API devuelve un objeto con la propiedad types (ej: { count: X, types: [...] })
+        if (data && data.types) {
+            registros = data.types;
         }
 
         if (registros.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección de subtipo en este bloque.</p>';
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección.</p>';
             return;
         }
 
