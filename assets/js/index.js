@@ -194,83 +194,51 @@ async function ejecutarConsultaEmisor(issuerCode) {
     resultsDiv.innerHTML = '';
 
     try {
-        let todosLosRegistros = [];
-        let paginaActual = 1;
-        let totalRegistrosApi = 0;
-        let totalPaginas = 1;
-        const maxPaginasSeguridad = 10; // Límite de seguridad para evitar llamadas excesivas (hasta 1000 registros)
+        // Siguiendo el estándar del ejemplo oficial de la API de Numista
+        const params = { 
+            issuer: issuerCode, 
+            lang: 'es',
+            count: 50 // El límite estándar recomendado por el ejemplo oficial
+        };
+        
+        if (categoryValue) {
+            params.category = categoryValue;
+        }
 
-        do {
-            const params = { 
-                issuer: issuerCode, 
-                lang: 'es',
-                count: 100, // Máximo permitido por página por la API v3
-                page: paginaActual
-            };
-            
-            if (categoryValue) {
-                params.category = categoryValue;
-            }
+        // Llamada a través de tu Edge Function de Supabase (idéntica estructura al requests.get)
+        const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
+            body: { endpoint: 'types', params: params }
+        });
 
-            // Si la API v3 soporta object_type directamente, lo incluimos; si no, el filtro en cliente lo asegurará
-            if (subTypeVal) {
-                params.object_type = parseInt(subTypeVal, 10);
-            }
-            
-            const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
-                body: { endpoint: 'types', params: params }
-            });
+        console.log("Respuesta oficial obtenida:", data);
 
-            if (error) throw error;
-
-            // La respuesta de la API v3 tiene la estructura { count: X, types: [...] }
-            const registrosBloque = asegurarArray(data.types || data);
-            totalRegistrosApi = data.count || registrosBloque.length;
-
-            if (registrosBloque.length === 0) break;
-
-            todosLosRegistros = todosLosRegistros.concat(registrosBloque);
-
-            // Calculamos el total de páginas basándonos en el count que devuelve la API
-            totalPaginas = Math.ceil(totalRegistrosApi / 100);
-
-            // Incrementamos la página y comprobamos condiciones de salida
-            paginaActual++;
-
-            if (paginaActual > totalPaginas || paginaActual > maxPaginasSeguridad) {
-                break;
-            }
-
-        } while (todosLosRegistros.length < totalRegistrosApi);
-
+        if (error) throw error;
         if (loading) loading.classList.add('hidden');
 
-        // FILTRADO FINAL EN CLIENTE (por si la API ignoró el object_type en algún caso)
-        let registrosFiltrados = todosLosRegistros;
+        // Estructura oficial devuelta por Numista: { count: X, types: [...] }
+        let registros = asegurarArray(data.types || data);
+
+        // Filtrado limpio y seguro en cliente sobre los resultados de la página actual
         if (subTypeVal) {
-            registrosFiltrados = todosLosRegistros.filter(item => {
+            registros = registros.filter(item => {
                 const idSubtipoItem = item.object_type?.id;
                 return String(idSubtipoItem) === String(subTypeVal);
             });
         }
 
-        console.log(`Páginas consultadas con éxito. Total global en API: ${totalRegistrosApi} | Filtrados: ${registrosFiltrados.length}`);
-
-        if (registrosFiltrados.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección de subtipo.</p>';
+        if (registros.length === 0) {
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección en esta página.</p>';
             return;
         }
 
-        const muestra = registrosFiltrados.slice(0, 5); 
-
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p><strong>Total de registros encontrados:</strong> ${registrosFiltrados.length} (de un total de ${totalRegistrosApi} en Numista)</p>
-                <p style="font-size: 0.9em; color: gray;">Mostrando los primeros elementos.</p>
+                <p><strong>Total global en Numista:</strong> ${data.count || 'N/A'} | <strong>Mostrados en página:</strong> ${registros.length}</p>
+                <p style="font-size: 0.9em; color: gray;">Filtrado aplicado correctamente.</p>
             </div>
         `;
 
-        muestra.forEach((item, index) => {
+        registros.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = 'item';
             
@@ -299,6 +267,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
         resultsDiv.innerHTML = `<p style="color: red; grid-column: 1 / -1; text-align: center;">Error: ${err.message}</p>`;
     }
 }
+
 function limpiarResultados() {
     const resultsDiv = document.getElementById('results');
     if (resultsDiv) {
