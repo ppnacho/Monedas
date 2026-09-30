@@ -1,6 +1,7 @@
 import { supabaseClient } from './supabaseClient.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOMContentLoaded disparado. Inicializando aplicación...");
     cargarEmisores();
     cargarCategoriasFijas(); 
     cargarSubtiposFijos(); // Cargamos todos los subtipos en memoria al iniciar
@@ -14,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const categorySelect = document.getElementById('category');
     if (categorySelect) {
         categorySelect.addEventListener('change', () => {
+            console.log("Evento change en categoría detectado.");
             filtrarSubtiposPorCategoria(); // Actualizamos las opciones visibles del selector de subtipos
             
             const issuer = document.getElementById('issuer').value;
@@ -27,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const subTypeSelect = document.getElementById('object_type');
     if (subTypeSelect) {
         subTypeSelect.addEventListener('change', () => {
+            console.log("Evento change en subtipo detectado.");
             const issuer = document.getElementById('issuer').value;
             if (issuer) {
                 ejecutarConsultaEmisor(issuer);
@@ -49,14 +52,18 @@ function asegurarArray(data) {
 // 1. Cargar la lista de emisores y configurar el evento 'change'
 async function cargarEmisores() {
     const issuerSelect = document.getElementById('issuer');
-    if (!issuerSelect) return;
+    if (!issuerSelect) {
+        console.warn("No se encontró el elemento select de emisores en el DOM.");
+        return;
+    }
 
     try {
+        console.log("Invocando endpoint 'issuers' en Supabase...");
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'issuers', params: { lang: 'es' } }
         });
 
-        console.log("Consultando cargar emisores:", data);
+        console.log("Respuesta cruda de emisores:", data);
         
         if (error) throw error;
         
@@ -70,11 +77,13 @@ async function cargarEmisores() {
             issuerSelect.appendChild(option);
         });
 
+        console.log(`Se han cargado ${issuers.length} emisores en el selector.`);
+
         // Detectar cuando el usuario cambia el país en el desplegable
         issuerSelect.addEventListener('change', (e) => {
             const issuerCode = e.target.value;
             if (issuerCode) {
-                console.log("Emisor seleccionado:", issuerCode);
+                console.log("Emisor cambiado en el select:", issuerCode);
                 ejecutarConsultaEmisor(issuerCode);
             } else {
                 limpiarResultados();
@@ -105,7 +114,7 @@ function cargarCategoriasFijas() {
         categorySelect.appendChild(option);
     });
 
-    console.log("Categorías compatibles con la API cargadas correctamente.");
+    console.log("Categorías fijas cargadas correctamente.");
 }
 
 // Lista maestra de subtipos fijos (guardada globalmente para poder filtrarla)
@@ -147,7 +156,7 @@ function cargarSubtiposFijos() {
         subTypeSelect.appendChild(option);
     });
 
-    console.log("Subtipos fijos cargados correctamente.");
+    console.log("Subtipos fijos iniciales cargados correctamente.");
 }
 
 // 4. Filtrar dinámicamente el selector de subtipos según la categoría elegida
@@ -181,26 +190,32 @@ function filtrarSubtiposPorCategoria() {
             subTypeSelect.value = "";
         }
     }
+    console.log("Subtipos filtrados según categoría:", categoriaSeleccionada);
 }
 
-// 5. Consulta con paginación controlada por la API v3 de Numista
+// 5. Consulta con paginación controlada y trazas completas de depuración
 async function ejecutarConsultaEmisor(issuerCode) {
+    console.group("🚀 [DEBUG EXTENDIDO] INICIANDO CONSULTA DE EMISOR");
+    console.log("1. Emisor recibido:", issuerCode);
+
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
     const categoryValue = document.getElementById('category')?.value;
-    const subTypeVal = document.getElementById('object_type')?.value; // Ej: "5" (Monedas locales)
+    const subTypeVal = document.getElementById('object_type')?.value;
+
+    console.log("2. Filtros activos -> Categoría:", categoryValue, "| Subtipo ID:", subTypeVal);
 
     if (loading) loading.classList.remove('hidden');
-    resultsDiv.innerHTML = '';
+    if (resultsDiv) resultsDiv.innerHTML = '';
 
     try {
         let todosLosRegistros = [];
         let paginaActual = 1;
         let totalApi = 0;
-        const maxPaginas = 10; // Límite de seguridad (hasta 500 registros explorados)
+        const maxPaginas = 5; // Límite de seguridad de páginas para pruebas
 
-        // Bucle controlado para buscar y acumular páginas hasta encontrar coincidencias o agotar límite
         do {
+            console.log(`--- Solicitando página ${paginaActual} a Supabase ---`);
             const params = { 
                 issuer: issuerCode, 
                 lang: 'es',
@@ -208,25 +223,37 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 page: paginaActual
             };
             
-            if (categoryValue) {
+            if (categoryValue && categoryValue.trim() !== "") {
                 params.category = categoryValue;
             }
+
+            console.log("Parámetros enviados a numista-proxy:", params);
 
             const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
                 body: { endpoint: 'types', params: params }
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error(`❌ Error en la página ${paginaActual}:`, error);
+                throw error;
+            }
+
+            console.log(`Respuesta recibida en página ${paginaActual}:`, data);
 
             const registrosBloque = asegurarArray(data.types || data);
             totalApi = data.count || registrosBloque.length;
 
-            if (registrosBloque.length === 0) break;
+            console.log(`Registros en este bloque: ${registrosBloque.length} | Total declarado por API: ${totalApi}`);
+
+            if (registrosBloque.length === 0) {
+                console.log("⚠️ El bloque está vacío. Rompiendo bucle de paginación.");
+                break;
+            }
 
             todosLosRegistros = todosLosRegistros.concat(registrosBloque);
 
-            // Si ya tenemos suficientes o llegamos al final del catálogo de la API, salimos
             if (todosLosRegistros.length >= totalApi || registrosBloque.length < 50 || paginaActual >= maxPaginas) {
+                console.log("Condición de salida del bucle de paginación cumplida.");
                 break;
             }
 
@@ -235,23 +262,40 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
         if (loading) loading.classList.add('hidden');
 
-        // Filtrado exacto usando la estructura real que nos devolvió la consola: item.object_type.id
+        console.log(`3. Total acumulado antes de filtrar: ${todosLosRegistros.length}`);
+
+        if (todosLosRegistros.length > 0) {
+            console.log("Muestra del primer registro acumulado:", todosLosRegistros[0]);
+            console.log("Su object_type es:", todosLosRegistros[0].object_type);
+        }
+
+        // Filtrado local por subtipo
         let registrosFiltrados = todosLosRegistros;
-        if (subTypeVal && subTypeVal.trim() !== "") {
-            registrosFiltrados = todosLosRegistros.filter(item => {
+        if (subTypeVal !== null && subTypeVal !== undefined && subTypeVal.trim() !== "") {
+            console.log(`4. Aplicando filtro local para object_type.id === "${subTypeVal}"`);
+            registrosFiltrados = todosLosRegistros.filter((item, idx) => {
                 const idSubtipoItem = item.object_type?.id;
-                return String(idSubtipoItem) === String(subTypeVal);
+                const match = String(idSubtipoItem) === String(subTypeVal.trim());
+                if (idx < 5) {
+                    console.log(`   [Item ${idx}] ID Tipo: ${idSubtipoItem} (${typeof idSubtipoItem}) vs Buscado: ${subTypeVal} (${typeof subTypeVal}) -> ¿Coincide?: ${match}`);
+                }
+                return match;
             });
+            console.log(`5. Total tras filtrado por subtipo: ${registrosFiltrados.length}`);
+        } else {
+            console.log("4. No se aplica filtro de subtipo (viene vacío).");
         }
 
         if (registrosFiltrados.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para este subtipo en las páginas exploradas.</p>';
+            console.warn("⚠️ No hay registros que mostrar tras el filtro.");
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: orange;">No se encontraron registros para esta selección en las páginas exploradas.</p>';
+            console.groupEnd();
             return;
         }
 
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p><strong>Total encontrados con este subtipo:</strong> ${registrosFiltrados.length} (de ${totalApi} totales en Numista)</p>
+                <p><strong>Total filtrados:</strong> ${registrosFiltrados.length} | <strong>Total global Numista:</strong> ${totalApi}</p>
             </div>
         `;
 
@@ -278,10 +322,14 @@ async function ejecutarConsultaEmisor(issuerCode) {
             resultsDiv.appendChild(card);
         });
 
+        console.log("✅ Renderizado finalizado con éxito.");
+
     } catch (err) {
         if (loading) loading.classList.add('hidden');
-        console.error("Error en la consulta:", err);
+        console.error("❌ Error crítico en ejecutarConsultaEmisor:", err);
         resultsDiv.innerHTML = `<p style="color: red; grid-column: 1 / -1; text-align: center;">Error: ${err.message}</p>`;
+    } finally {
+        console.groupEnd();
     }
 }
 
@@ -294,6 +342,9 @@ function limpiarResultados() {
 
 function probarConsultaEmisor(e) {
     e.preventDefault();
+    console.log("Formulario enviado mediante submit.");
     const issuer = document.getElementById('issuer').value;
-    if (issuer) ejecutarConsultaEmisor(issuer);
+    if (issuer) {
+        ejecutarConsultaEmisor(issuer);
+    }
 }
