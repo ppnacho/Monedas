@@ -183,7 +183,7 @@ function filtrarSubtiposPorCategoria() {
     }
 }
 
-// 5. Realizar la consulta por emisor y categoría, filtrando el subtipo en JavaScript
+// 5. Consulta con paginación controlada por la API v3 de Numista
 async function ejecutarConsultaEmisor(issuerCode) {
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
@@ -194,47 +194,79 @@ async function ejecutarConsultaEmisor(issuerCode) {
     resultsDiv.innerHTML = '';
 
     try {
-        const params = { 
-            issuer: issuerCode, 
-            lang: 'es' 
-        };
-        
-        if (categoryValue) {
-            params.category = categoryValue;
-        }
-        
-        // Usamos 'st' que es el parámetro oficial de Numista para el subtipo
-        if (subTypeVal) {
-            params.st = subTypeVal;
-        }
-        
-        const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
-            body: { endpoint: 'types', params: params }
-        });
+        let todosLosRegistros = [];
+        let paginaActual = 1;
+        let totalRegistrosApi = 0;
+        let totalPaginas = 1;
+        const maxPaginasSeguridad = 10; // Límite de seguridad para evitar llamadas excesivas (hasta 1000 registros)
 
-        console.log("Datos recibidos de la API:", data);
+        do {
+            const params = { 
+                issuer: issuerCode, 
+                lang: 'es',
+                count: 100, // Máximo permitido por página por la API v3
+                page: paginaActual
+            };
+            
+            if (categoryValue) {
+                params.category = categoryValue;
+            }
 
-        if (error) throw error;
+            // Si la API v3 soporta object_type directamente, lo incluimos; si no, el filtro en cliente lo asegurará
+            if (subTypeVal) {
+                params.object_type = parseInt(subTypeVal, 10);
+            }
+            
+            const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
+                body: { endpoint: 'types', params: params }
+            });
+
+            if (error) throw error;
+
+            // La respuesta de la API v3 tiene la estructura { count: X, types: [...] }
+            const registrosBloque = asegurarArray(data.types || data);
+            totalRegistrosApi = data.count || registrosBloque.length;
+
+            if (registrosBloque.length === 0) break;
+
+            todosLosRegistros = todosLosRegistros.concat(registrosBloque);
+
+            // Calculamos el total de páginas basándonos en el count que devuelve la API
+            totalPaginas = Math.ceil(totalRegistrosApi / 100);
+
+            // Incrementamos la página y comprobamos condiciones de salida
+            paginaActual++;
+
+            if (paginaActual > totalPaginas || paginaActual > maxPaginasSeguridad) {
+                break;
+            }
+
+        } while (todosLosRegistros.length < totalRegistrosApi);
+
         if (loading) loading.classList.add('hidden');
 
-        let registros = asegurarArray(data);
-
-        // Si la API devuelve un objeto con la propiedad types (ej: { count: X, types: [...] })
-        if (data && data.types) {
-            registros = data.types;
+        // FILTRADO FINAL EN CLIENTE (por si la API ignoró el object_type en algún caso)
+        let registrosFiltrados = todosLosRegistros;
+        if (subTypeVal) {
+            registrosFiltrados = todosLosRegistros.filter(item => {
+                const idSubtipoItem = item.object_type?.id;
+                return String(idSubtipoItem) === String(subTypeVal);
+            });
         }
 
-        if (registros.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección.</p>';
+        console.log(`Páginas consultadas con éxito. Total global en API: ${totalRegistrosApi} | Filtrados: ${registrosFiltrados.length}`);
+
+        if (registrosFiltrados.length === 0) {
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección de subtipo.</p>';
             return;
         }
 
-        const muestra = registros.slice(0, 5); 
+        const muestra = registrosFiltrados.slice(0, 5); 
 
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p><strong>Total de registros encontrados:</strong> ${registros.length}</p>
-                <p style="font-size: 0.9em; color: gray;">Mostrando los primeros 5 elementos.</p>
+                <p><strong>Total de registros encontrados:</strong> ${registrosFiltrados.length} (de un total de ${totalRegistrosApi} en Numista)</p>
+                <p style="font-size: 0.9em; color: gray;">Mostrando los primeros elementos.</p>
             </div>
         `;
 
@@ -267,7 +299,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
         resultsDiv.innerHTML = `<p style="color: red; grid-column: 1 / -1; text-align: center;">Error: ${err.message}</p>`;
     }
 }
-
 function limpiarResultados() {
     const resultsDiv = document.getElementById('results');
     if (resultsDiv) {
