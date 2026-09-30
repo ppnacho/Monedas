@@ -2,10 +2,22 @@ import { supabaseClient } from './supabaseClient.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     cargarEmisores();
+    cargarCategoriasFijas(); // Cargamos las categorías fijas al iniciar
 
     const searchForm = document.getElementById('searchForm');
     if (searchForm) {
         searchForm.addEventListener('submit', probarConsultaEmisor);
+    }
+
+    // Configurar también el evento change para el selector de categoría
+    const categorySelect = document.getElementById('category');
+    if (categorySelect) {
+        categorySelect.addEventListener('change', () => {
+            const issuer = document.getElementById('issuer').value;
+            if (issuer) {
+                ejecutarConsultaEmisor(issuer);
+            }
+        });
     }
 });
 
@@ -51,7 +63,7 @@ async function cargarEmisores() {
                 console.log("Emisor seleccionado:", issuerCode);
                 ejecutarConsultaEmisor(issuerCode);
             } else {
-                limpiarSelectores();
+                limpiarResultados();
             }
         });
 
@@ -60,22 +72,52 @@ async function cargarEmisores() {
     }
 }
 
-// 2. Realizar la consulta por emisor, extraer categorías y mostrar la muestra
+// 2. Cargar de manera fija las 5 categorías oficiales de la API de Numista
+function cargarCategoriasFijas() {
+    const categorySelect = document.getElementById('category');
+    if (!categorySelect) return;
+
+    categorySelect.innerHTML = '<option value="">-- Todas las categorías --</option>';
+
+    const categoriasOficiales = [
+        { value: 'coin', label: 'Monedas' },
+        { value: 'banknote', label: 'Billetes' },
+        { value: 'token', label: 'Fichas' },
+        { value: 'medal', label: 'Medallas' },
+        { value: 'exonumia', label: 'Exonumia' }
+    ];
+
+    categoriasOficiales.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.value; 
+        option.textContent = cat.label; 
+        categorySelect.appendChild(option);
+    });
+
+    console.log("Categorías fijas cargadas correctamente.");
+}
+
+// 3. Realizar la consulta por emisor y categoría opcional, mostrando la muestra
 async function ejecutarConsultaEmisor(issuerCode) {
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
+    const categoryValue = document.getElementById('category')?.value;
 
     if (loading) loading.classList.remove('hidden');
     resultsDiv.innerHTML = '';
 
     try {
+        // Construimos los parámetros dinámicamente según lo que esté seleccionado
         const params = { issuer: issuerCode, lang: 'es' };
+        if (categoryValue) {
+            params.category = categoryValue;
+        }
         
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'types', params: params }
         });
 
-        console.log("Consultando datos del emisor:", data);
+        console.log("Consultando datos con parámetros:", params, data);
 
         if (error) throw error;
         if (loading) loading.classList.add('hidden');
@@ -83,13 +125,9 @@ async function ejecutarConsultaEmisor(issuerCode) {
         const registros = asegurarArray(data);
 
         if (registros.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para este emisor.</p>';
-            limpiarSelectores();
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección.</p>';
             return;
         }
-
-        // --- PASO CLAVE: Extraer categorías únicas de la totalidad de los registros devueltos ---
-        poblarSelectorCategorias(registros);
 
         // Mostrar muestra visual y depuración
         const muestra = registros.slice(0, 5); 
@@ -97,7 +135,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <p><strong>Total de registros devueltos por la API:</strong> ${registros.length}</p>
-                <p style="font-size: 0.9em; color: gray;">Categorías extraídas y cargadas en el selector superior. Mostrando los primeros 5 elementos.</p>
+                <p style="font-size: 0.9em; color: gray;">Mostrando los primeros 5 elementos.</p>
             </div>
         `;
 
@@ -130,39 +168,10 @@ async function ejecutarConsultaEmisor(issuerCode) {
     }
 }
 
-// 3. Función para procesar los registros y rellenar el selector de categoría de manera única
-function poblarSelectorCategorias(registros) {
-    const categorySelect = document.getElementById('category');
-    if (!categorySelect) return;
-
-    // Limpiar opciones anteriores
-    categorySelect.innerHTML = '<option value="">-- Todas las categorías --</option>';
-
-    // Usar un Set para garantizar que los valores de 'category' sean únicos
-    const categoriasUnicas = new Set();
-
-    registros.forEach(item => {
-        if (item.category) {
-            categoriasUnicas.add(item.category);
-        }
-    });
-
-    // Rellenar el selector con las categorías encontradas
-    categoriasUnicas.forEach(cat => {
-        const option = document.createElement('option');
-        option.value = cat;
-        // Podríamos capitalizar o formatear el texto si se desea (ej: 'coin' -> 'Coin')
-        option.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
-        categorySelect.appendChild(option);
-    });
-
-    console.log("Categorías únicas encontradas y cargadas:", Array.from(categoriasUnicas));
-}
-
-function limpiarSelectores() {
-    const categorySelect = document.getElementById('category');
-    if (categorySelect) {
-        categorySelect.innerHTML = '<option value="">-- Selecciona un emisor primero --</option>';
+function limpiarResultados() {
+    const resultsDiv = document.getElementById('results');
+    if (resultsDiv) {
+        resultsDiv.innerHTML = '';
     }
 }
 
