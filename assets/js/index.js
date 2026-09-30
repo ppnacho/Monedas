@@ -188,59 +188,74 @@ async function ejecutarConsultaEmisor(issuerCode) {
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
     const categoryValue = document.getElementById('category')?.value;
-    const subTypeVal = document.getElementById('object_type')?.value; // Ej: "5"
+    const subTypeVal = document.getElementById('object_type')?.value; // Ej: "5" (Monedas locales)
 
     if (loading) loading.classList.remove('hidden');
     resultsDiv.innerHTML = '';
 
     try {
-        // Consultamos la API limpiamente SIN inventar parámetros que devuelven 0
-        const params = { 
-            issuer: issuerCode, 
-            lang: 'es',
-            count: 50
-        };
-        
-        if (categoryValue) {
-            params.category = categoryValue;
-        }
+        let todosLosRegistros = [];
+        let paginaActual = 1;
+        let totalApi = 0;
+        const maxPaginas = 10; // Límite de seguridad (hasta 500 registros explorados)
 
-        const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
-            body: { endpoint: 'types', params: params }
-        });
+        // Bucle controlado para buscar y acumular páginas hasta encontrar coincidencias o agotar límite
+        do {
+            const params = { 
+                issuer: issuerCode, 
+                lang: 'es',
+                count: 50,
+                page: paginaActual
+            };
+            
+            if (categoryValue) {
+                params.category = categoryValue;
+            }
 
-        if (error) throw error;
+            const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
+                body: { endpoint: 'types', params: params }
+            });
+
+            if (error) throw error;
+
+            const registrosBloque = asegurarArray(data.types || data);
+            totalApi = data.count || registrosBloque.length;
+
+            if (registrosBloque.length === 0) break;
+
+            todosLosRegistros = todosLosRegistros.concat(registrosBloque);
+
+            // Si ya tenemos suficientes o llegamos al final del catálogo de la API, salimos
+            if (todosLosRegistros.length >= totalApi || registrosBloque.length < 50 || paginaActual >= maxPaginas) {
+                break;
+            }
+
+            paginaActual++;
+        } while (true);
+
         if (loading) loading.classList.add('hidden');
 
-        let registros = asegurarArray(data.types || data);
-
-        // IMPRESIÓN DE DEBUGEO: Inspeccionamos el primer objeto completo para ver cómo llama Numista al subtipo
-        if (registros.length > 0) {
-            console.log("ESTRUCTURA DE UN ITEM:", registros[0]);
-        }
-
-        // Filtrado en cliente usando una búsqueda flexible dentro del objeto
+        // Filtrado exacto usando la estructura real que nos devolvió la consola: item.object_type.id
+        let registrosFiltrados = todosLosRegistros;
         if (subTypeVal && subTypeVal.trim() !== "") {
-            registros = registros.filter(item => {
-                // Buscamos si el ID del subtipo coincide en cualquier propiedad relacionada
-                const tipoObj = item.object_type || item.type || item.sub_type;
-                const idComparar = typeof tipoObj === 'object' ? tipoObj?.id : tipoObj;
-                return String(idComparar) === String(subTypeVal);
+            registrosFiltrados = todosLosRegistros.filter(item => {
+                const idSubtipoItem = item.object_type?.id;
+                return String(idSubtipoItem) === String(subTypeVal);
             });
         }
 
-        if (registros.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No hay registros en esta página que coincidan con este subtipo (prueba a revisar la consola).</p>';
+        if (registrosFiltrados.length === 0) {
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para este subtipo en las páginas exploradas.</p>';
             return;
         }
 
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p><strong>Total global en Numista:</strong> ${data.count || 'N/A'} | <strong>Filtrados en esta página:</strong> ${registros.length}</p>
+                <p><strong>Total encontrados con este subtipo:</strong> ${registrosFiltrados.length} (de ${totalApi} totales en Numista)</p>
             </div>
         `;
 
-        registros.forEach((item, index) => {
+        registrosFiltrados.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = 'item';
             
@@ -248,6 +263,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
             const id = item.type_id || item.id || 'N/A';
             const img = item.obverse_thumbnail || 'https://via.placeholder.com/105?text=Sin+Imagen';
             const cat = item.category || 'N/A';
+            const subName = item.object_type?.name || 'N/A';
 
             card.innerHTML = `
                 <div class="coin-images">
@@ -255,7 +271,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 </div>
                 <div class="coin-info">
                     <h3 class="coin-title">[#${index + 1}] ${title}</h3>
-                    <p class="coin-meta">ID Numista: ${id} | Categoría: <strong>${cat}</strong></p>
+                    <p class="coin-meta">ID Numista: ${id} | Categoría: <strong>${cat}</strong> | Subtipo: <strong>${subName}</strong></p>
                     <pre style="font-size: 0.75em; background: rgba(0,0,0,0.3); padding: 5px; overflow-x: auto;">${JSON.stringify(item, null, 2)}</pre>
                 </div>
             `;
