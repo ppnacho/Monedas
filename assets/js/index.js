@@ -82,9 +82,7 @@ function cargarCategoriasFijas() {
     const categoriasOficiales = [
         { value: 'coin', label: 'Monedas' },
         { value: 'banknote', label: 'Billetes' },
-        { value: 'token', label: 'Fichas' },
-        { value: 'medal', label: 'Medallas' },
-        { value: 'exonumia', label: 'Exonumia' }
+        { value: 'exonumia', label: 'Exonumia / Medallas / Fichas' }
     ];
 
     categoriasOficiales.forEach(cat => {
@@ -94,7 +92,7 @@ function cargarCategoriasFijas() {
         categorySelect.appendChild(option);
     });
 
-    console.log("Categorías fijas cargadas correctamente.");
+    console.log("Categorías compatibles con la API cargadas correctamente.");
 }
 
 // 3. Realizar la consulta por emisor y categoría opcional, mostrando la muestra
