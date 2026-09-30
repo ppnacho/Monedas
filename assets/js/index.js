@@ -194,10 +194,24 @@ async function ejecutarConsultaEmisor(issuerCode) {
     resultsDiv.innerHTML = '';
 
     try {
-        // Consultamos a la API enviando únicamente emisor y categoría (si la hay)
-        const params = { issuer: issuerCode, lang: 'es' };
+        // Mapeo clave: Si es España, la API de Numista requiere el código interno "espagne"
+        let apiIssuer = issuerCode;
+        if (issuerCode.toLowerCase() === 'spain' || issuerCode.toLowerCase() === 'españa') {
+            apiIssuer = 'espagne';
+        }
+
+        const params = { 
+            issuer: apiIssuer, 
+            lang: 'es' 
+        };
+        
         if (categoryValue) {
             params.category = categoryValue;
+        }
+        
+        // Enviamos el subtipo directamente a la API a través de tu Edge Function
+        if (subTypeVal) {
+            params.object_type = parseInt(subTypeVal, 10);
         }
         
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
@@ -210,15 +224,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
         if (loading) loading.classList.add('hidden');
 
         let registros = asegurarArray(data);
-
-        // FILTRADO EN CLIENTE: Si el usuario seleccionó un subtipo específico
-        if (subTypeVal) {
-            registros = registros.filter(item => {
-                // Comprobamos el ID dentro del objeto object_type o como propiedad directa
-                const idSubtipoItem = item.object_type?.id || item.object_type_id || item.sub_type_id;
-                return String(idSubtipoItem) === String(subTypeVal);
-            });
-        }
 
         if (registros.length === 0) {
             resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección de subtipo.</p>';
