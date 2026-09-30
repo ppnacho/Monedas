@@ -69,10 +69,8 @@ async function ejecutarConsultaEmisor(issuerCode) {
     resultsDiv.innerHTML = '';
 
     try {
-        const params = { issuer: issuerCode, lang: 'es', limit: 50 };
-
-        console.log("Consultando tipos para el emisor:", params);
-
+        const params = { issuer: issuerCode, lang: 'es' };
+        
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'types', params: params }
         });
