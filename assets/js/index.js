@@ -188,53 +188,48 @@ async function ejecutarConsultaEmisor(issuerCode) {
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
     const categoryValue = document.getElementById('category')?.value;
-    const subTypeVal = document.getElementById('object_type')?.value; // Ej: "5"
+    const subTypeVal = document.getElementById('object_type')?.value; // Ej: ID de subtipo (ej. "5")
 
     if (loading) loading.classList.remove('hidden');
     resultsDiv.innerHTML = '';
 
     try {
-        // Siguiendo el estándar del ejemplo oficial de la API de Numista
+        // Parámetros oficiales soportados por la API v3 de Numista (/types)
         const params = { 
             issuer: issuerCode, 
             lang: 'es',
-            count: 50 // El límite estándar recomendado por el ejemplo oficial
+            count: 50
         };
         
         if (categoryValue) {
             params.category = categoryValue;
         }
 
-        // Llamada a través de tu Edge Function de Supabase (idéntica estructura al requests.get)
+        // ¡Aquí está la clave! Pasamos object_type directamente a la API oficial de Numista
+        if (subTypeVal && subTypeVal.trim() !== "") {
+            params.object_type = subTypeVal;
+        }
+
+        // Llamada a tu Edge Function de Supabase
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'types', params: params }
         });
 
-        console.log("Respuesta oficial obtenida:", data);
+        console.log("Respuesta oficial obtenida con filtro de subtipo:", data);
 
         if (error) throw error;
         if (loading) loading.classList.add('hidden');
 
-        // Estructura oficial devuelta por Numista: { count: X, types: [...] }
         let registros = asegurarArray(data.types || data);
 
-        // Filtrado limpio y seguro en cliente sobre los resultados de la página actual
-        if (subTypeVal) {
-            registros = registros.filter(item => {
-                const idSubtipoItem = item.object_type?.id;
-                return String(idSubtipoItem) === String(subTypeVal);
-            });
-        }
-
         if (registros.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección en esta página.</p>';
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros con este subtipo para este emisor.</p>';
             return;
         }
 
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p><strong>Total global en Numista:</strong> ${data.count || 'N/A'} | <strong>Mostrados en página:</strong> ${registros.length}</p>
-                <p style="font-size: 0.9em; color: gray;">Filtrado aplicado correctamente.</p>
+                <p><strong>Total global en Numista:</strong> ${data.count || 'N/A'} | <strong>Mostrados:</strong> ${registros.length}</p>
             </div>
         `;
 
@@ -246,7 +241,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
             const id = item.type_id || item.id || 'N/A';
             const img = item.obverse_thumbnail || 'https://via.placeholder.com/105?text=Sin+Imagen';
             const cat = item.category || 'N/A';
-            const subName = item.object_type?.name || 'N/A';
 
             card.innerHTML = `
                 <div class="coin-images">
@@ -254,7 +248,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 </div>
                 <div class="coin-info">
                     <h3 class="coin-title">[#${index + 1}] ${title}</h3>
-                    <p class="coin-meta">ID Numista: ${id} | Categoría: <strong>${cat}</strong> | Tipo: <strong>${subName}</strong></p>
+                    <p class="coin-meta">ID Numista: ${id} | Categoría: <strong>${cat}</strong></p>
                     <pre style="font-size: 0.75em; background: rgba(0,0,0,0.3); padding: 5px; overflow-x: auto;">${JSON.stringify(item, null, 2)}</pre>
                 </div>
             `;
