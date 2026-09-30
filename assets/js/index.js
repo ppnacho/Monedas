@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Función auxiliar para asegurar que manejamos arrays correctamente
 function asegurarArray(data) {
     if (Array.isArray(data)) return data;
     if (!data) return [];
@@ -21,7 +20,7 @@ function asegurarArray(data) {
     return [];
 }
 
-// 1. Cargar la lista de emisores en el desplegable
+// 1. Cargar la lista de emisores y configurar el evento 'change'
 async function cargarEmisores() {
     const issuerSelect = document.getElementById('issuer');
     if (!issuerSelect) return;
@@ -37,33 +36,38 @@ async function cargarEmisores() {
 
         issuers.forEach(issuer => {
             const option = document.createElement('option');
+            // Dependiendo de si la API usa 'code' o 'id' para filtrar luego en 'types'
             option.value = issuer.code || issuer.id; 
             option.textContent = issuer.name || issuer.code;
             issuerSelect.appendChild(option);
         });
+
+        // 👈 AQUÍ ESTÁ LA CLAVE: Detectar cuando el usuario cambia el país en el desplegable
+        issuerSelect.addEventListener('change', (e) => {
+            const issuerCode = e.target.value;
+            if (issuerCode) {
+                console.log("Emisor seleccionado:", issuerCode);
+                ejecutarConsultaEmisor(issuerCode);
+            } else {
+                document.getElementById('results').innerHTML = '';
+            }
+        });
+
     } catch (err) {
         console.error("No se pudieron cargar los emisores:", err);
     }
 }
 
-// 2. Realizar la consulta por emisor y mostrar los primeros registros en bruto
-async function probarConsultaEmisor(e) {
-    e.preventDefault(); 
-
-    const issuer = document.getElementById('issuer').value;
+// 2. Realizar la consulta por emisor automáticamente al seleccionarlo
+async function ejecutarConsultaEmisor(issuerCode) {
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
-
-    if (!issuer) {
-        alert("Por favor, selecciona un país o emisor primero.");
-        return;
-    }
 
     if (loading) loading.classList.remove('hidden');
     resultsDiv.innerHTML = '';
 
     try {
-        const params = { issuer: issuer, lang: 'es' };
+        const params = { issuer: issuerCode, lang: 'es' };
 
         console.log("Consultando tipos para el emisor:", params);
 
@@ -81,7 +85,6 @@ async function probarConsultaEmisor(e) {
             return;
         }
 
-        // Mostramos un mensaje indicando el total y recortamos a los primeros 5 o 10 registros para inspección
         const muestra = registros.slice(0, 5); 
 
         resultsDiv.innerHTML = `
@@ -91,7 +94,7 @@ async function probarConsultaEmisor(e) {
             </div>
         `;
 
-        // Imprimimos el objeto completo del primer registro en la consola para que veas sus propiedades exactas
+        // Imprimimos el objeto completo del primer registro en la consola
         console.log("Estructura de un registro completo:", registros[0]);
 
         muestra.forEach((item, index) => {
@@ -120,4 +123,11 @@ async function probarConsultaEmisor(e) {
         console.error("Error en la consulta:", err);
         resultsDiv.innerHTML = `<p style="color: red; grid-column: 1 / -1; text-align: center;">Error: ${err.message}</p>`;
     }
+}
+
+// Por si se pulsa el botón de enviar clásico del formulario
+function probarConsultaEmisor(e) {
+    e.preventDefault();
+    const issuer = document.getElementById('issuer').value;
+    if (issuer) ejecutarConsultaEmisor(issuer);
 }
