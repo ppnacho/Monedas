@@ -193,7 +193,7 @@ function filtrarSubtiposPorCategoria() {
     console.log("Subtipos filtrados según categoría:", categoriaSeleccionada);
 }
 
-// 5. Consulta con paginación controlada y trazas completas de depuración
+// 5. Consulta con paginación dinámica total (sin límites artificiales) y trazas completas
 async function ejecutarConsultaEmisor(issuerCode) {
     console.group("🚀 [DEBUG EXTENDIDO] INICIANDO CONSULTA DE EMISOR");
     console.log("1. Emisor recibido:", issuerCode);
@@ -212,10 +212,10 @@ async function ejecutarConsultaEmisor(issuerCode) {
         let todosLosRegistros = [];
         let paginaActual = 1;
         let totalApi = 0;
-        const maxPaginas = 5; // Límite de seguridad de páginas para pruebas
+        let totalPaginasEstimadas = 1;
 
         do {
-            console.log(`--- Solicitando página ${paginaActual} a Supabase ---`);
+            console.log(`--- Solicitando página ${paginaActual} de ${totalPaginasEstimadas} (aprox) a Supabase ---`);
             const params = { 
                 issuer: issuerCode, 
                 lang: 'es',
@@ -227,8 +227,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 params.category = categoryValue;
             }
 
-            console.log("Parámetros enviados a numista-proxy:", params);
-
             const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
                 body: { endpoint: 'types', params: params }
             });
@@ -238,12 +236,13 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 throw error;
             }
 
-            console.log(`Respuesta recibida en página ${paginaActual}:`, data);
-
             const registrosBloque = asegurarArray(data.types || data);
-            totalApi = data.count || registrosBloque.length;
+            totalApi = data.count || totalApi || registrosBloque.length;
+            
+            // Recalcular cuántas páginas totales hay en función del count que devuelve la API
+            totalPaginasEstimadas = Math.ceil(totalApi / 50);
 
-            console.log(`Registros en este bloque: ${registrosBloque.length} | Total declarado por API: ${totalApi}`);
+            console.log(`Página ${paginaActual}/${totalPaginasEstimadas} | Obtenidos en bloque: ${registrosBloque.length} | Total acumulado hasta ahora: ${todosLosRegistros.length + registrosBloque.length} / ${totalApi}`);
 
             if (registrosBloque.length === 0) {
                 console.log("⚠️ El bloque está vacío. Rompiendo bucle de paginación.");
@@ -252,8 +251,9 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
             todosLosRegistros = todosLosRegistros.concat(registrosBloque);
 
-            if (todosLosRegistros.length >= totalApi || registrosBloque.length < 50 || paginaActual >= maxPaginas) {
-                console.log("Condición de salida del bucle de paginación cumplida.");
+            // Condición de parada real basada en los datos de la API
+            if (todosLosRegistros.length >= totalApi || registrosBloque.length < 50) {
+                console.log("✅ Se han descargado todos los registros disponibles en la API.");
                 break;
             }
 
@@ -262,24 +262,15 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
         if (loading) loading.classList.add('hidden');
 
-        console.log(`3. Total acumulado antes de filtrar: ${todosLosRegistros.length}`);
-
-        if (todosLosRegistros.length > 0) {
-            console.log("Muestra del primer registro acumulado:", todosLosRegistros[0]);
-            console.log("Su object_type es:", todosLosRegistros[0].object_type);
-        }
+        console.log(`3. Total acumulado final antes de filtrar: ${todosLosRegistros.length}`);
 
         // Filtrado local por subtipo
         let registrosFiltrados = todosLosRegistros;
         if (subTypeVal !== null && subTypeVal !== undefined && subTypeVal.trim() !== "") {
             console.log(`4. Aplicando filtro local para object_type.id === "${subTypeVal}"`);
-            registrosFiltrados = todosLosRegistros.filter((item, idx) => {
+            registrosFiltrados = todosLosRegistros.filter(item => {
                 const idSubtipoItem = item.object_type?.id;
-                const match = String(idSubtipoItem) === String(subTypeVal.trim());
-                if (idx < 5) {
-                    console.log(`   [Item ${idx}] ID Tipo: ${idSubtipoItem} (${typeof idSubtipoItem}) vs Buscado: ${subTypeVal} (${typeof subTypeVal}) -> ¿Coincide?: ${match}`);
-                }
-                return match;
+                return String(idSubtipoItem) === String(subTypeVal.trim());
             });
             console.log(`5. Total tras filtrado por subtipo: ${registrosFiltrados.length}`);
         } else {
@@ -288,14 +279,14 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
         if (registrosFiltrados.length === 0) {
             console.warn("⚠️ No hay registros que mostrar tras el filtro.");
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: orange;">No se encontraron registros para esta selección en las páginas exploradas.</p>';
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: orange;">No se encontraron registros para esta selección en todo el catálogo del emisor.</p>';
             console.groupEnd();
             return;
         }
 
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p><strong>Total filtrados:</strong> ${registrosFiltrados.length} | <strong>Total global Numista:</strong> ${totalApi}</p>
+                <p><strong>Total filtrados:</strong> ${registrosFiltrados.length} | <strong>Total global descargado de Numista:</strong> ${totalApi} (${paginaActual} páginas recorridas)</p>
             </div>
         `;
 
