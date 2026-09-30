@@ -184,6 +184,7 @@ function filtrarSubtiposPorCategoria() {
 }
 
 // 5. Realizar la consulta por emisor y categoría, filtrando el subtipo en JavaScript
+// 5. Realizar la consulta pidiendo un bloque amplio y filtrando el subtipo en cliente
 async function ejecutarConsultaEmisor(issuerCode) {
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
@@ -194,25 +195,18 @@ async function ejecutarConsultaEmisor(issuerCode) {
     resultsDiv.innerHTML = '';
 
     try {
-        // Mapeo clave: Si es España, la API de Numista requiere el código interno "espagne"
-        let apiIssuer = issuerCode;
-        if (issuerCode.toLowerCase() === 'spain' || issuerCode.toLowerCase() === 'españa') {
-            apiIssuer = 'espagne';
-        }
-
+        // Pedimos el emisor y un count alto para que el bloque de resultados incluya todo lo necesario
         const params = { 
-            issuer: apiIssuer, 
-            lang: 'es' 
+            issuer: issuerCode, 
+            lang: 'es',
+            count: 1000 // Ampliamos el límite para capturar suficientes registros y que no se queden fuera las monedas locales
         };
         
         if (categoryValue) {
             params.category = categoryValue;
         }
         
-        // Enviamos el subtipo directamente a la API a través de tu Edge Function
-        if (subTypeVal) {
-            params.object_type = parseInt(subTypeVal, 10);
-        }
+        // NO enviamos object_type en la URL para evitar el { count: 0 } de la API
         
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'types', params: params }
@@ -225,8 +219,16 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
         let registros = asegurarArray(data);
 
+        // FILTRADO ESTRICTO EN CLIENTE: Comparamos el ID del objeto object_type
+        if (subTypeVal) {
+            registros = registros.filter(item => {
+                const idSubtipoItem = item.object_type?.id;
+                return String(idSubtipoItem) === String(subTypeVal);
+            });
+        }
+
         if (registros.length === 0) {
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección de subtipo.</p>';
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">No se encontraron registros para esta selección de subtipo en este bloque.</p>';
             return;
         }
 
