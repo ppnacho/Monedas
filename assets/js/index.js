@@ -29,6 +29,9 @@ async function cargarEmisores() {
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'issuers', params: { lang: 'es' } }
         });
+
+        console.log("Consultando tipos para el emisor:", data);
+        
         if (error) throw error;
         
         const issuers = asegurarArray(data);
