@@ -178,7 +178,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
     
     // Capturar campos de filtrado (Año y término de búsqueda)
     const yearValue = document.getElementById('year')?.value?.trim();
-    const searchTerm = document.getElementById('search_term')?.value?.trim().toLowerCase() || '';
+    const searchTerm = document.getElementById('q')?.value?.trim().toLowerCase() || '';
 
     console.log("2. Filtros activos -> Categoría:", categoryValue, "| Subtipo ID:", subTypeVal, "| Año:", yearValue, "| Término:", searchTerm);
 
