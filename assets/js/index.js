@@ -351,7 +351,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
                         Categoría: <strong>${cat}</strong> | Subtipo: <strong>${subName}</strong>
                     </p>
                     <div style="margin-top: 10px;">
-                        <button class="btn-add-collection" data-id="${id}" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        <button class="btn-add-collection" data-id="${id}" data-obverse="${imgObverse}" data-reverse="${imgReverse}" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
                             Añadir a la colección
                         </button>
                     </div>
@@ -363,10 +363,13 @@ async function ejecutarConsultaEmisor(issuerCode) {
         // 6. Configurar el evento para los botones de añadir a la colección llamando a la Edge Function 'add-item'
         resultsDiv.querySelectorAll('.btn-add-collection').forEach(button => {
             button.addEventListener('click', async (e) => {
-                const typeId = e.target.getAttribute('data-id');
+                const btn = e.target;
+                const typeId = btn.getAttribute('data-id');
+                const obverseUrl = btn.getAttribute('data-obverse');
+                const reverseUrl = btn.getAttribute('data-reverse');
+
                 if (!typeId || typeId === 'N/A') return;
 
-                const btn = e.target;
                 const textoOriginal = btn.textContent;
                 btn.disabled = true;
                 btn.textContent = 'Guardando...';
@@ -375,7 +378,11 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
                 try {
                     const { data, error } = await supabaseClient.functions.invoke('add-item', {
-                        body: { typeId: parseInt(typeId, 10) }
+                        body: { 
+                            typeId: parseInt(typeId, 10),
+                            obverseUrl: obverseUrl || '',
+                            reverseUrl: reverseUrl || ''
+                        }
                     });
 
                     if (error) throw error;
