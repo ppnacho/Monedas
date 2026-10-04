@@ -6,6 +6,12 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarCategoriasFijas(); 
     cargarSubtiposFijos(); // Cargamos todos los subtipos en memoria al iniciar
 
+    // Añadir ayuda visual (tooltip) al input de año de forma dinámica si lo deseas
+    const yearInput = document.getElementById('year');
+    if (yearInput) {
+        yearInput.setAttribute('title', 'Formatos admitidos:\n- Año exacto: 1566\n- Hasta un año (-AÑO): -2000 (hasta el 2000)\n- Desde un año (AÑO-): 2000- (desde el 2000)\n- Rango (AÑO-AÑO): 1500-1600');
+    }
+
     const searchForm = document.getElementById('searchForm');
     if (searchForm) {
         // Único punto de entrada para ejecutar la búsqueda al pulsar el botón
@@ -176,7 +182,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
     const categoryValue = document.getElementById('category')?.value;
     const subTypeVal = document.getElementById('object_type')?.value;
     
-    // Capturar campos de filtrado (Año y término de búsqueda)
+    // Capturar campos de filtrado (Año y término de búsqueda corregido al ID 'q')
     const yearValue = document.getElementById('year')?.value?.trim();
     const searchTerm = document.getElementById('q')?.value?.trim().toLowerCase() || '';
 
@@ -250,16 +256,49 @@ async function ejecutarConsultaEmisor(issuerCode) {
             });
         }
 
-        // C. Filtro por Año (si está informado en el formulario)
+        // C. Filtro por Año avanzado (-AÑO, AÑO-, Rango, Exacto)
         if (yearValue && yearValue !== "") {
-            console.log(`4C. Aplicando filtro por año: "${yearValue}"`);
+            console.log(`4C. Aplicando filtro avanzado por año: "${yearValue}"`);
             registrosFiltrados = registrosFiltrados.filter(item => {
-                const beginYear = item.begin_year ? String(item.begin_year) : '';
-                const endYear = item.end_year ? String(item.end_year) : '';
-                const issueYear = item.year ? String(item.year) : '';
-                
-                return beginYear === yearValue || endYear === yearValue || issueYear === yearValue || 
-                       (item.title && item.title.includes(yearValue));
+                const minYear = item.min_year ? parseInt(item.min_year, 10) : null;
+                const maxYear = item.max_year ? parseInt(item.max_year, 10) : null;
+                const issueYear = item.year ? parseInt(item.year, 10) : null;
+
+                // Si la pieza no tiene ningún dato de año, la descartamos
+                if (minYear === null && maxYear === null && issueYear === null) return false;
+
+                const pMin = minYear !== null ? minYear : (maxYear !== null ? maxYear : issueYear);
+                const pMax = maxYear !== null ? maxYear : (minYear !== null ? minYear : issueYear);
+
+                // Caso 1: Formato "-AÑO" (ej: -2000 -> hasta el año 2000 incluido)
+                if (yearValue.startsWith('-') && !yearValue.endsWith('-')) {
+                    const targetYear = parseInt(yearValue.substring(1), 10);
+                    if (isNaN(targetYear)) return true;
+                    return pMin <= targetYear;
+                }
+
+                // Caso 2: Formato "AÑO-" (ej: 2000- -> desde el año 2000 en adelante incluido)
+                if (yearValue.endsWith('-') && !yearValue.startsWith('-')) {
+                    const targetYear = parseInt(yearValue.slice(0, -1), 10);
+                    if (isNaN(targetYear)) return true;
+                    return pMax >= targetYear;
+                }
+
+                // Caso 3: Formato de Rango "AÑO-AÑO" (ej: 1500-1600)
+                if (yearValue.includes('-')) {
+                    const partes = yearValue.split('-');
+                    const startYear = parseInt(partes[0], 10);
+                    const endYear = parseInt(partes[1], 10);
+                    if (isNaN(startYear) || isNaN(endYear)) return true;
+                    return pMin <= endYear && pMax >= startYear;
+                }
+
+                // Caso 4: Año exacto o coincidencia en texto (ej: 1566)
+                const exactYear = parseInt(yearValue, 10);
+                if (isNaN(exactYear)) {
+                    return item.title && item.title.includes(yearValue);
+                }
+                return (exactYear >= pMin && exactYear <= pMax) || (item.title && item.title.includes(yearValue));
             });
         }
 
@@ -333,7 +372,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
             button.addEventListener('click', (e) => {
                 const typeId = e.target.getAttribute('data-id');
                 console.log(`Botón pulsado para añadir a la colección la pieza ID: ${typeId}`);
-                // Próximamente: Llamada a la Edge Function para consultar detalle y guardar en Supabase
             });
         });
 
