@@ -79,7 +79,7 @@ function cargarCategoriasFijas() {
     const categorySelect = document.getElementById('category');
     if (!categorySelect) return;
 
-    categorySelect.innerHTML = '<option value="">-- Todas las categorías --</option>';
+    categorySelect.innerHTML = '<option value="">-- Toutes les catégories --</option>';
 
     const categoriasOficiales = [
         { value: 'coin', label: 'Monedas' },
@@ -195,7 +195,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
         let todosLosRegistros = [];
         let paginaActual = 1;
         let totalApi = 0;
-        let totalPaginasEstimadas = 1;
 
         do {
             const params = { 
@@ -220,7 +219,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
             const registrosBloque = asegurarArray(data.types || data);
             totalApi = data.count || totalApi || registrosBloque.length;
-            totalPaginasEstimadas = Math.ceil(totalApi / 50);
 
             if (registrosBloque.length === 0) break;
 
@@ -247,7 +245,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
             });
         }
 
-        // B. Filtro por Término de Búsqueda en el título (case-insensitive, parcial o total)
+        // B. Filtro por Término de Búsqueda en el título
         if (searchTerm !== "") {
             console.log(`4B. Aplicando filtro por término en título: "${searchTerm}"`);
             registrosFiltrados = registrosFiltrados.filter(item => {
@@ -264,27 +262,23 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 const maxYear = item.max_year ? parseInt(item.max_year, 10) : null;
                 const issueYear = item.year ? parseInt(item.year, 10) : null;
 
-                // Si la pieza no tiene ningún dato de año, la descartamos
                 if (minYear === null && maxYear === null && issueYear === null) return false;
 
                 const pMin = minYear !== null ? minYear : (maxYear !== null ? maxYear : issueYear);
                 const pMax = maxYear !== null ? maxYear : (minYear !== null ? minYear : issueYear);
 
-                // Caso 1: Formato "-AÑO" (ej: -2000 -> hasta el año 2000 incluido)
                 if (yearValue.startsWith('-') && !yearValue.endsWith('-')) {
                     const targetYear = parseInt(yearValue.substring(1), 10);
                     if (isNaN(targetYear)) return true;
                     return pMin <= targetYear;
                 }
 
-                // Caso 2: Formato "AÑO-" (ej: 2000- -> desde el año 2000 en adelante incluido)
                 if (yearValue.endsWith('-') && !yearValue.startsWith('-')) {
                     const targetYear = parseInt(yearValue.slice(0, -1), 10);
                     if (isNaN(targetYear)) return true;
                     return pMax >= targetYear;
                 }
 
-                // Caso 3: Formato de Rango "AÑO-AÑO" (ej: 1500-1600)
                 if (yearValue.includes('-')) {
                     const partes = yearValue.split('-');
                     const startYear = parseInt(partes[0], 10);
@@ -293,7 +287,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
                     return pMin <= endYear && pMax >= startYear;
                 }
 
-                // Caso 4: Año exacto o coincidencia en texto (ej: 1566)
                 const exactYear = parseInt(yearValue, 10);
                 if (isNaN(exactYear)) {
                     return item.title && item.title.includes(yearValue);
@@ -367,11 +360,48 @@ async function ejecutarConsultaEmisor(issuerCode) {
             resultsDiv.appendChild(card);
         });
 
-        // Event listener para los botones de añadir a la colección
+        // 6. Configurar el evento para los botones de añadir a la colección llamando a la Edge Function 'add-item'
         resultsDiv.querySelectorAll('.btn-add-collection').forEach(button => {
-            button.addEventListener('click', (e) => {
+            button.addEventListener('click', async (e) => {
                 const typeId = e.target.getAttribute('data-id');
-                console.log(`Botón pulsado para añadir a la colección la pieza ID: ${typeId}`);
+                if (!typeId || typeId === 'N/A') return;
+
+                const btn = e.target;
+                const textoOriginal = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Guardando...';
+
+                console.log(`Enviando petición a la Edge Function 'add-item' para el ID: ${typeId}`);
+
+                try {
+                    const { data, error } = await supabaseClient.functions.invoke('add-item', {
+                        body: { typeId: parseInt(typeId, 10) }
+                    });
+
+                    if (error) throw error;
+
+                    console.log("Respuesta de la Edge Function:", data);
+                    btn.style.backgroundColor = '#155724';
+                    btn.textContent = '¡Guardado!';
+                    
+                    setTimeout(() => {
+                        btn.textContent = textoOriginal;
+                        btn.style.backgroundColor = '#28a745';
+                        btn.disabled = false;
+                    }, 3000);
+
+                } catch (err) {
+                    console.error("Error al guardar en la colección:", err);
+                    alert(`Error al guardar la pieza: ${err.message}`);
+                    btn.textContent = 'Error';
+                    btn.style.backgroundColor = '#dc3545';
+                    
+                    setTimeout(() => {
+                        btn.textContent = textoOriginal;
+                        btn.style.backgroundColor = '#28a745';
+                        btn.disabled = false;
+                    }, 3000);
+                }
             });
         });
 
