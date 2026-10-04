@@ -8,32 +8,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const searchForm = document.getElementById('searchForm');
     if (searchForm) {
+        // Único punto de entrada para ejecutar la búsqueda al pulsar el botón
         searchForm.addEventListener('submit', probarConsultaEmisor);
     }
 
-    // Configurar el evento change para el selector de categoría
+    // Configurar el evento change para el selector de categoría (solo actualiza el desplegable de subtipos visualmente)
     const categorySelect = document.getElementById('category');
     if (categorySelect) {
         categorySelect.addEventListener('change', () => {
             console.log("Evento change en categoría detectado.");
             filtrarSubtiposPorCategoria(); // Actualizamos las opciones visibles del selector de subtipos
-            
-            const issuer = document.getElementById('issuer').value;
-            if (issuer) {
-                ejecutarConsultaEmisor(issuer);
-            }
-        });
-    }
-
-    // Evento change para el selector de subtipos
-    const subTypeSelect = document.getElementById('object_type');
-    if (subTypeSelect) {
-        subTypeSelect.addEventListener('change', () => {
-            console.log("Evento change en subtipo detectado.");
-            const issuer = document.getElementById('issuer').value;
-            if (issuer) {
-                ejecutarConsultaEmisor(issuer);
-            }
         });
     }
 });
@@ -49,7 +33,7 @@ function asegurarArray(data) {
     return [];
 }
 
-// 1. Cargar la lista de emisores y configurar el evento 'change'
+// 1. Cargar la lista de emisores (única llamada inicial automática permitida)
 async function cargarEmisores() {
     const issuerSelect = document.getElementById('issuer');
     if (!issuerSelect) {
@@ -78,17 +62,6 @@ async function cargarEmisores() {
         });
 
         console.log(`Se han cargado ${issuers.length} emisores en el selector.`);
-
-        // Detectar cuando el usuario cambia el país en el desplegable
-        issuerSelect.addEventListener('change', (e) => {
-            const issuerCode = e.target.value;
-            if (issuerCode) {
-                console.log("Emisor cambiado en el select:", issuerCode);
-                ejecutarConsultaEmisor(issuerCode);
-            } else {
-                limpiarResultados();
-            }
-        });
 
     } catch (err) {
         console.error("No se pudieron cargar los emisores:", err);
@@ -193,7 +166,7 @@ function filtrarSubtiposPorCategoria() {
     console.log("Subtipos filtrados según categoría:", categoriaSeleccionada);
 }
 
-// 5. Consulta con paginación dinámica total (sin límites artificiales) y trazas completas
+// 5. Consulta ejecutada unívocamente al pulsar el botón de búsqueda
 async function ejecutarConsultaEmisor(issuerCode) {
     console.group("🚀 [DEBUG EXTENDIDO] INICIANDO CONSULTA DE EMISOR");
     console.log("1. Emisor recibido:", issuerCode);
@@ -202,8 +175,12 @@ async function ejecutarConsultaEmisor(issuerCode) {
     const resultsDiv = document.getElementById('results');
     const categoryValue = document.getElementById('category')?.value;
     const subTypeVal = document.getElementById('object_type')?.value;
+    
+    // Capturar nuevos campos de filtrado (Año y término de búsqueda)
+    const yearValue = document.getElementById('year')?.value?.trim();
+    const searchTerm = document.getElementById('search_term')?.value?.trim().toLowerCase() || '';
 
-    console.log("2. Filtros activos -> Categoría:", categoryValue, "| Subtipo ID buscado:", subTypeVal);
+    console.log("2. Filtros activos -> Categoría:", categoryValue, "| Subtipo ID:", subTypeVal, "| Año:", yearValue, "| Término:", searchTerm);
 
     if (loading) loading.classList.remove('hidden');
     if (resultsDiv) resultsDiv.innerHTML = '';
@@ -252,45 +229,55 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
         console.log(`3. Total acumulado final antes de filtrar: ${todosLosRegistros.length}`);
 
-        // --- CHIVATO DE SUBTIPOS DISPONIBLES ---
-        // Esto te mostrará en la consola un resumen de qué object_type.id vienen en los datos reales
-        const subtiposEncontrados = {};
-        todosLosRegistros.forEach(item => {
-            if (item.object_type) {
-                const id = item.object_type.id;
-                const name = item.object_type.name;
-                subtiposEncontrados[id] = { name: name, count: (subtiposEncontrados[id]?.count || 0) + 1 };
-            } else {
-                subtiposEncontrados['SIN_OBJECT_TYPE'] = (subtiposEncontrados['SIN_OBJECT_TYPE'] || 0) + 1;
-            }
-        });
-        console.log("🔍 Subtipos reales presentes en estos 3253 registros:", subtiposEncontrados);
-        // ----------------------------------------
-
-        // Filtrado local por subtipo
+        // --- FILTRADO LOCAL ---
         let registrosFiltrados = todosLosRegistros;
+
+        // A. Filtro por Subtipo
         if (subTypeVal !== null && subTypeVal !== undefined && subTypeVal.trim() !== "") {
-            console.log(`4. Aplicando filtro local para object_type.id === "${subTypeVal}"`);
-            registrosFiltrados = todosLosRegistros.filter(item => {
+            console.log(`4A. Aplicando filtro local para object_type.id === "${subTypeVal}"`);
+            registrosFiltrados = registrosFiltrados.filter(item => {
                 const idSubtipoItem = item.object_type?.id;
-                // Probamos comparación flexible por si acaso viene como número o string
                 return idSubtipoItem == subTypeVal.trim();
             });
-            console.log(`5. Total tras filtrado por subtipo: ${registrosFiltrados.length}`);
-        } else {
-            console.log("4. No se aplica filtro de subtipo (viene vacío).");
         }
+
+        // B. Filtro por Término de Búsqueda en el título (case-insensitive, parcial o total)
+        if (searchTerm !== "") {
+            console.log(`4B. Aplicando filtro por término en título: "${searchTerm}"`);
+            registrosFiltrados = registrosFiltrados.filter(item => {
+                const titleText = (item.title || item.name || '').toLowerCase();
+                return titleText.includes(searchTerm);
+            });
+        }
+
+        // C. Filtro por Año (si está informado en el formulario)
+        if (yearValue && yearValue !== "") {
+            console.log(`4C. Aplicando filtro por año: "${yearValue}"`);
+            registrosFiltrados = registrosFiltrados.filter(item => {
+                // Comprobamos si el año coincide con las propiedades típicas de fechas/años del item
+                const beginYear = item.begin_year ? String(item.begin_year) : '';
+                const endYear = item.end_year ? String(item.end_year) : '';
+                const issueYear = item.year ? String(item.year) : '';
+                
+                return beginYear === yearValue || endYear === yearValue || issueYear === yearValue || 
+                       (item.title && item.title.includes(yearValue));
+            });
+        }
+
+        console.log(`5. Total tras aplicar todos los filtros: ${registrosFiltrados.length}`);
+
+        if (loading) loading.classList.add('hidden');
 
         if (registrosFiltrados.length === 0) {
             console.warn("⚠️ No hay registros que mostrar tras el filtro.");
-            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: orange;">No se encontraron registros para esta selección en todo el catálogo del emisor.</p>';
+            resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: orange;">No se encontraron registros para esta selección.</p>';
             console.groupEnd();
             return;
         }
 
         resultsDiv.innerHTML = `
             <div style="grid-column: 1 / -1; background: var(--bg-card, #222); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p><strong>Total filtrados:</strong> ${registrosFiltrados.length} | <strong>Total global descargado de Numista:</strong> ${totalApi} (${paginaActual} páginas recorridas)</p>
+                <p><strong>Total filtrados:</strong> ${registrosFiltrados.length} | <strong>Total global descargado:</strong> ${totalApi}</p>
             </div>
         `;
 
@@ -300,13 +287,27 @@ async function ejecutarConsultaEmisor(issuerCode) {
             
             const title = item.title || item.name || 'Sin título';
             const id = item.type_id || item.id || 'N/A';
-            const img = item.obverse_thumbnail || 'https://via.placeholder.com/105?text=Sin+Imagen';
             const cat = item.category || 'N/A';
             const subName = item.object_type?.name || 'N/A';
 
+            // Revisión de imágenes: incluimos anverso y reverso si están disponibles en el objeto
+            const imgObverse = item.obverse_thumbnail || '';
+            const imgReverse = item.reverse_thumbnail || '';
+            
+            let imagenesHtml = '';
+            if (imgObverse) {
+                imagenesHtml += `<img src="${imgObverse}" alt="${title} - Anverso" title="Anverso">`;
+            }
+            if (imgReverse) {
+                imagenesHtml += `<img src="${imgReverse}" alt="${title} - Reverso" title="Reverso">`;
+            }
+            if (!imgObverse && !imgReverse) {
+                imagenesHtml = `<img src="https://via.placeholder.com/105?text=Sin+Imagen" alt="Sin Imagen">`;
+            }
+
             card.innerHTML = `
                 <div class="coin-images">
-                    <img src="${img}" alt="${title}">
+                    ${imagenesHtml}
                 </div>
                 <div class="coin-info">
                     <h3 class="coin-title">[#${index + 1}] ${title}</h3>
@@ -328,18 +329,13 @@ async function ejecutarConsultaEmisor(issuerCode) {
     }
 }
 
-function limpiarResultados() {
-    const resultsDiv = document.getElementById('results');
-    if (resultsDiv) {
-        resultsDiv.innerHTML = '';
-    }
-}
-
 function probarConsultaEmisor(e) {
     e.preventDefault();
-    console.log("Formulario enviado mediante submit.");
+    console.log("Formulario enviado mediante botón de búsqueda.");
     const issuer = document.getElementById('issuer').value;
     if (issuer) {
         ejecutarConsultaEmisor(issuer);
+    } else {
+        alert("Por favor, selecciona al menos un emisor (país).");
     }
 }
