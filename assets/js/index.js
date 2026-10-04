@@ -176,7 +176,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
     const categoryValue = document.getElementById('category')?.value;
     const subTypeVal = document.getElementById('object_type')?.value;
     
-    // Capturar nuevos campos de filtrado (Año y término de búsqueda)
+    // Capturar campos de filtrado (Año y término de búsqueda)
     const yearValue = document.getElementById('year')?.value?.trim();
     const searchTerm = document.getElementById('search_term')?.value?.trim().toLowerCase() || '';
 
@@ -254,7 +254,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
         if (yearValue && yearValue !== "") {
             console.log(`4C. Aplicando filtro por año: "${yearValue}"`);
             registrosFiltrados = registrosFiltrados.filter(item => {
-                // Comprobamos si el año coincide con las propiedades típicas de fechas/años del item
                 const beginYear = item.begin_year ? String(item.begin_year) : '';
                 const endYear = item.end_year ? String(item.end_year) : '';
                 const issueYear = item.year ? String(item.year) : '';
@@ -290,7 +289,11 @@ async function ejecutarConsultaEmisor(issuerCode) {
             const cat = item.category || 'N/A';
             const subName = item.object_type?.name || 'N/A';
 
-            // Revisión de imágenes: incluimos anverso y reverso si están disponibles en el objeto
+            const minYear = item.min_year || '';
+            const maxYear = item.max_year || '';
+            const rangoAnios = (minYear || maxYear) ? `${minYear} - ${maxYear}` : 'No especificado';
+            const emisorNombre = item.issuer?.name || 'Desconocido';
+
             const imgObverse = item.obverse_thumbnail || '';
             const imgReverse = item.reverse_thumbnail || '';
             
@@ -311,11 +314,27 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 </div>
                 <div class="coin-info">
                     <h3 class="coin-title">[#${index + 1}] ${title}</h3>
-                    <p class="coin-meta">ID Numista: ${id} | Categoría: <strong>${cat}</strong> | Subtipo: <strong>${subName}</strong></p>
-                    <pre style="font-size: 0.75em; background: rgba(0,0,0,0.3); padding: 5px; overflow-x: auto;">${JSON.stringify(item, null, 2)}</pre>
+                    <p class="coin-meta">
+                        ID Numista: <strong>${id}</strong> | Emisor: <strong>${emisorNombre}</strong> | Años: <strong>${rangoAnios}</strong><br>
+                        Categoría: <strong>${cat}</strong> | Subtipo: <strong>${subName}</strong>
+                    </p>
+                    <div style="margin-top: 10px;">
+                        <button class="btn-add-collection" data-id="${id}" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Añadir a la colección
+                        </button>
+                    </div>
                 </div>
             `;
             resultsDiv.appendChild(card);
+        });
+
+        // Event listener para los botones de añadir a la colección
+        resultsDiv.querySelectorAll('.btn-add-collection').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const typeId = e.target.getAttribute('data-id');
+                console.log(`Botón pulsado para añadir a la colección la pieza ID: ${typeId}`);
+                // Próximamente: Llamada a la Edge Function para consultar detalle y guardar en Supabase
+            });
         });
 
         console.log("✅ Renderizado finalizado con éxito.");
