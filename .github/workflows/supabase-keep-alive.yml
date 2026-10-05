@@ -13,6 +13,6 @@ jobs:
     steps:
       - name: Consulta SELECT a la base de datos de Supabase
         run: |
-          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/socios?select=*&limit=1" \
+          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/coleccion_monedas?select=*&limit=1" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
