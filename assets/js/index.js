@@ -1,15 +1,13 @@
 import { supabaseClient } from './supabaseClient.js';
 
-// Lista maestra global de emisores para asociar nombre con código/ID
 let issuersGlobal = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOMContentLoaded disparado. Inicializando aplicación...");
     cargarEmisores();
     cargarCategoriasFijas(); 
-    cargarSubtiposFijos(); // Cargamos todos los subtipos en memoria al iniciar
+    cargarSubtiposFijos();
 
-    // Añadir ayuda visual (tooltip) al input de año de forma dinámica si lo deseas
     const yearInput = document.getElementById('year');
     if (yearInput) {
         yearInput.setAttribute('title', 'Formatos admitidos:\n- Año exacto: 1566\n- Hasta un año (-AÑO): -2000 (hasta el 2000)\n- Desde un año (AÑO-): 2000- (desde el 2000)\n- Rango (AÑO-AÑO): 1500-1600');
@@ -17,42 +15,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const searchForm = document.getElementById('searchForm');
     if (searchForm) {
-        // Único punto de entrada para ejecutar la búsqueda al pulsar el botón
         searchForm.addEventListener('submit', probarConsultaEmisor);
     }
 
-    // Configurar el evento change para el selector de categoría (solo actualiza el desplegable de subtipos visualmente)
     const categorySelect = document.getElementById('category');
     if (categorySelect) {
         categorySelect.addEventListener('change', () => {
-            console.log("Evento change en categoría detectado.");
-            filtrarSubtiposPorCategoria(); // Actualizamos las opciones visibles del selector de subtipos
+            filtrarSubtiposPorCategoria();
         });
     }
 
-    // NUEVO: Sincronizar el input de texto del emisor con el input oculto (datalist)
-    const issuerInput = document.getElementById('issuer-input');
-    const issuerHidden = document.getElementById('issuer');
-    const listaEmisores = document.getElementById('lista-emisores');
-
-    if (issuerInput && issuerHidden && listaEmisores) {
-        issuerInput.addEventListener('input', (e) => {
-            const valorEscrito = e.target.value.trim();
-            let codigoEncontrado = "";
-
-            // Buscamos si el texto escrito coincide exactamente con algún nombre de la lista maestra
-            const emisorCoincidente = issuersGlobal.find(
-                iss => (iss.name || '').toLowerCase() === valorEscrito.toLowerCase()
-            );
-
-            if (emisorCoincidente) {
-                codigoEncontrado = emisorCoincidente.code || emisorCoincidente.id;
-            }
-
-            // Asignamos el código real al input oculto (o el texto libre si no hace match exacto)
-            issuerHidden.value = codigoEncontrado || valorEscrito;
-        });
-    }
+    inicializarAutocompletadoEmisor();
 });
 
 function asegurarArray(data) {
@@ -66,51 +39,98 @@ function asegurarArray(data) {
     return [];
 }
 
-// 1. Cargar la lista de emisores en el datalist (Optimizado para evitar el select lento)
 async function cargarEmisores() {
-    const listaEmisores = document.getElementById('lista-emisores');
-    if (!listaEmisores) {
-        console.warn("No se encontró el elemento datalist 'lista-emisores' en el DOM.");
-        return;
-    }
-
     try {
-        console.log("Invocando endpoint 'issuers' en Supabase...");
         const { data, error } = await supabaseClient.functions.invoke('numista-proxy', {
             body: { endpoint: 'issuers', params: { lang: 'es' } }
         });
 
-        console.log("Respuesta cruda de emisores:", data);
-        
         if (error) throw error;
         
         issuersGlobal = asegurarArray(data);
         issuersGlobal.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-        listaEmisores.innerHTML = '';
-        issuersGlobal.forEach(issuer => {
-            const option = document.createElement('option');
-            // El value del option en un datalist es lo que ve y escribe el usuario (el nombre)
-            option.value = issuer.name || issuer.code;
-            // Guardamos el código real en un dataset por si lo necesitamos procesar visualmente
-            option.dataset.code = issuer.code || issuer.id;
-            listaEmisores.appendChild(option);
-        });
-
-        console.log(`Se han cargado ${issuersGlobal.length} emisores en el datalist.`);
-
+        console.log(`Se han cargado ${issuersGlobal.length} emisores en memoria.`);
     } catch (err) {
         console.error("No se pudieron cargar los emisores:", err);
     }
 }
 
-// 2. Cargar de manera fija las 2 categorías oficiales de la API de Numista
+// Autocompletado flotante personalizado para PC y móvil
+function inicializarAutocompletadoEmisor() {
+    const issuerInput = document.getElementById('issuer-input');
+    const issuerHidden = document.getElementById('issuer');
+    const dropdown = document.getElementById('lista-emisores');
+
+    if (!issuerInput || !issuerHidden || !dropdown) return;
+
+    // Aplicar estilos básicos para que actúe como lista flotante
+    dropdown.style.position = 'absolute';
+    dropdown.style.top = '100%';
+    dropdown.style.left = '0';
+    dropdown.style.right = '0';
+    dropdown.style.maxHeight = '200px';
+    dropdown.style.overflowY = 'auto';
+    dropdown.style.backgroundColor = 'var(--bg-card, #222)';
+    dropdown.style.border = '1px solid #444';
+    dropdown.style.borderRadius = '0 0 6px 6px';
+    dropdown.style.zIndex = '1000';
+
+    function mostrarSugerencias(filtro = '') {
+        dropdown.innerHTML = '';
+        const texto = filtro.toLowerCase().trim();
+
+        const filtrados = issuersGlobal.filter(iss => 
+            (iss.name || '').toLowerCase().includes(texto) || 
+            (iss.code || '').toLowerCase().includes(texto)
+        );
+
+        if (filtrados.length === 0 || (filtrados.length === 1 && filtrados[0].name.toLowerCase() === texto)) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+
+        filtrados.slice(0, 50).forEach(issuer => {
+            const div = document.createElement('div');
+            div.textContent = issuer.name;
+            div.style.padding = '8px 12px';
+            div.style.cursor = 'pointer';
+            div.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+            
+            div.addEventListener('mousedown', (e) => {
+                e.preventDefault(); 
+                issuerInput.value = issuer.name;
+                issuerHidden.value = issuer.code || issuer.id;
+                dropdown.classList.add('hidden');
+            });
+
+            dropdown.appendChild(div);
+        });
+
+        dropdown.classList.remove('hidden');
+    }
+
+    issuerInput.addEventListener('input', (e) => {
+        issuerHidden.value = ""; 
+        mostrarSugerencias(e.target.value);
+    });
+
+    issuerInput.addEventListener('focus', () => {
+        mostrarSugerencias(issuerInput.value);
+    });
+
+    issuerInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            dropdown.classList.add('hidden');
+        }, 200);
+    });
+}
+
 function cargarCategoriasFijas() {
     const categorySelect = document.getElementById('category');
     if (!categorySelect) return;
 
-    categorySelect.innerHTML = '<option value="">-- Toutes les catégories --</option>';
-
+    categorySelect.innerHTML = '<option value="">-- Todas las categorías --</option>';
     const categoriasOficiales = [
         { value: 'coin', label: 'Monedas' },
         { value: 'banknote', label: 'Billetes' }
@@ -122,13 +142,9 @@ function cargarCategoriasFijas() {
         option.textContent = cat.label; 
         categorySelect.appendChild(option);
     });
-
-    console.log("Categorías fijas cargadas correctamente.");
 }
 
-// Lista maestra de subtipos fijos (guardada globalmente para poder filtrarla)
 const objectTypesOficiales = [
-    // Monedas
     { id: 1, name: 'Monedas circulantes normales', category: 'coin' },
     { id: 2, name: 'Monedas circulantes conmemorativas', category: 'coin' },
     { id: 3, name: 'Monedas no circulantes', category: 'coin' },
@@ -138,7 +154,6 @@ const objectTypesOficiales = [
     { id: 6, name: 'Monedas de ensayo', category: 'coin' },
     { id: 54, name: 'Monedas falsas de época', category: 'coin' },
     { id: 72, name: 'Protomonedas', category: 'coin' },
-    // Billetes
     { id: 79, name: 'Billetes circulantes normales', category: 'banknote' },
     { id: 80, name: 'Billetes circulantes conmemorativos', category: 'banknote' },
     { id: 159, name: 'Billetes no circulantes', category: 'banknote' },
@@ -150,13 +165,11 @@ const objectTypesOficiales = [
     { id: 94, name: 'Billetes para probar cajeros automáticos', category: 'banknote' }
 ];
 
-// 3. Cargar de manera fija los subtipos iniciales en el selector
 function cargarSubtiposFijos() {
     const subTypeSelect = document.getElementById('object_type');
     if (!subTypeSelect) return;
 
-    subTypeSelect.innerHTML = '<option value="">-- Todos los subtipos --</option>';
-
+    subTypeSelect.innerHTML = '<option value="">-- Todos los tipos --</option>';
     objectTypesOficiales.forEach(sub => {
         const option = document.createElement('option');
         option.value = sub.id;
@@ -164,11 +177,8 @@ function cargarSubtiposFijos() {
         option.dataset.category = sub.category;
         subTypeSelect.appendChild(option);
     });
-
-    console.log("Subtipos fijos iniciales cargados correctamente.");
 }
 
-// 4. Filtrar dinámicamente el selector de subtipos según la categoría elegida
 function filtrarSubtiposPorCategoria() {
     const categorySelect = document.getElementById('category');
     const subTypeSelect = document.getElementById('object_type');
@@ -177,9 +187,8 @@ function filtrarSubtiposPorCategoria() {
     const categoriaSeleccionada = categorySelect.value;
     const valorPrevio = subTypeSelect.value;
 
-    subTypeSelect.innerHTML = '<option value="">-- Todos los subtipos --</option>';
+    subTypeSelect.innerHTML = '<option value="">-- Todos los tipos --</option>';
 
-    // Filtrar la lista maestra según corresponda
     const subtiposFiltrados = categoriaSeleccionada
         ? objectTypesOficiales.filter(sub => sub.category === categoriaSeleccionada)
         : objectTypesOficiales;
@@ -192,67 +201,44 @@ function filtrarSubtiposPorCategoria() {
         subTypeSelect.appendChild(option);
     });
 
-    // Intentar mantener el subtipo seleccionado si sigue siendo válido para esta categoría
     if (valorPrevio) {
         subTypeSelect.value = valorPrevio;
-        if (subTypeSelect.value === "") {
-            subTypeSelect.value = "";
-        }
     }
-    console.log("Subtipos filtrados según categoría:", categoriaSeleccionada);
 }
 
-// Función auxiliar para descargar la imagen desde el navegador y subirla a Supabase Storage
 async function subirImagenASupabase(urlExterna, numistaId, tipo) {
   if (!urlExterna || urlExterna.trim() === "") return null;
 
   try {
-    console.log(`Descargando imagen desde el navegador: ${urlExterna}`);
     const response = await fetch(urlExterna);
     if (!response.ok) throw new Error('Error al descargar la imagen');
     
     const blob = await response.blob();
     const fileName = `${numistaId}_${tipo}.jpg`;
 
-    // Sube el archivo directamente al bucket 'monedas-img' desde el cliente
     const { data, error } = await supabaseClient.storage
       .from('monedas-img')
       .upload(fileName, blob, { upsert: true });
 
-    if (error) {
-      console.error("Error subiendo a Supabase Storage:", error.message);
-      return urlExterna; // Fallback a la URL original si falla
-    }
+    if (error) return urlExterna;
 
-    // Obtiene la URL pública del archivo en tu Storage
     const { data: publicUrlData } = supabaseClient.storage
       .from('monedas-img')
       .getPublicUrl(data.path);
 
-    console.log(`✅ Imagen subida a tu Storage con éxito: ${publicUrlData.publicUrl}`);
     return publicUrlData.publicUrl;
-
   } catch (err) {
-    console.warn("No se pudo subir desde el navegador, usando URL directa:", err);
-    return urlExterna; // Fallback
+    return urlExterna;
   }
 }
 
-// 5. Consulta ejecutada unívocamente al pulsar el botón de búsqueda
 async function ejecutarConsultaEmisor(issuerCode) {
-    console.group("🚀 [DEBUG EXTENDIDO] INICIANDO CONSULTA DE EMISOR");
-    console.log("1. Emisor recibido:", issuerCode);
-
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
     const categoryValue = document.getElementById('category')?.value;
     const subTypeVal = document.getElementById('object_type')?.value;
-    
-    // Capturar campos de filtrado (Año y término de búsqueda corregido al ID 'q')
     const yearValue = document.getElementById('year')?.value?.trim();
     const searchTerm = document.getElementById('q')?.value?.trim().toLowerCase() || '';
-
-    console.log("2. Filtros activos -> Categoría:", categoryValue, "| Subtipo ID:", subTypeVal, "| Año:", yearValue, "| Término:", searchTerm);
 
     if (loading) loading.classList.remove('hidden');
     if (resultsDiv) resultsDiv.innerHTML = '';
@@ -278,10 +264,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 body: { endpoint: 'types', params: params }
             });
 
-            if (error) {
-                console.error(`❌ Error en la página ${paginaActual}:`, error);
-                throw error;
-            }
+            if (error) throw error;
 
             const registrosBloque = asegurarArray(data.types || data);
             totalApi = data.count || totalApi || registrosBloque.length;
@@ -297,32 +280,23 @@ async function ejecutarConsultaEmisor(issuerCode) {
             paginaActual++;
         } while (true);
 
-        console.log(`3. Total acumulado final antes de filtrar: ${todosLosRegistros.length}`);
-
-        // --- FILTRADO LOCAL ---
         let registrosFiltrados = todosLosRegistros;
 
-        // A. Filtro por Subtipo
         if (subTypeVal !== null && subTypeVal !== undefined && subTypeVal.trim() !== "") {
-            console.log(`4A. Aplicando filtro local para object_type.id === "${subTypeVal}"`);
             registrosFiltrados = registrosFiltrados.filter(item => {
                 const idSubtipoItem = item.object_type?.id;
                 return idSubtipoItem == subTypeVal.trim();
             });
         }
 
-        // B. Filtro por Término de Búsqueda en el título
         if (searchTerm !== "") {
-            console.log(`4B. Aplicando filtro por término en título: "${searchTerm}"`);
             registrosFiltrados = registrosFiltrados.filter(item => {
                 const titleText = (item.title || item.name || '').toLowerCase();
                 return titleText.includes(searchTerm);
             });
         }
 
-        // C. Filtro por Año avanzado (-AÑO, AÑO-, Rango, Exacto)
         if (yearValue && yearValue !== "") {
-            console.log(`4C. Aplicando filtro avanzado por año: "${yearValue}"`);
             registrosFiltrados = registrosFiltrados.filter(item => {
                 const minYear = item.min_year ? parseInt(item.min_year, 10) : null;
                 const maxYear = item.max_year ? parseInt(item.max_year, 10) : null;
@@ -335,22 +309,19 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
                 if (yearValue.startsWith('-') && !yearValue.endsWith('-')) {
                     const targetYear = parseInt(yearValue.substring(1), 10);
-                    if (isNaN(targetYear)) return true;
-                    return pMin <= targetYear;
+                    return isNaN(targetYear) || pMin <= targetYear;
                 }
 
                 if (yearValue.endsWith('-') && !yearValue.startsWith('-')) {
                     const targetYear = parseInt(yearValue.slice(0, -1), 10);
-                    if (isNaN(targetYear)) return true;
-                    return pMax >= targetYear;
+                    return isNaN(targetYear) || pMax >= targetYear;
                 }
 
                 if (yearValue.includes('-')) {
                     const partes = yearValue.split('-');
                     const startYear = parseInt(partes[0], 10);
                     const endYear = parseInt(partes[1], 10);
-                    if (isNaN(startYear) || isNaN(endYear)) return true;
-                    return pMin <= endYear && pMax >= startYear;
+                    return isNaN(startYear) || isNaN(endYear) || (pMin <= endYear && pMax >= startYear);
                 }
 
                 const exactYear = parseInt(yearValue, 10);
@@ -361,14 +332,10 @@ async function ejecutarConsultaEmisor(issuerCode) {
             });
         }
 
-        console.log(`5. Total tras aplicar todos los filtros: ${registrosFiltrados.length}`);
-
         if (loading) loading.classList.add('hidden');
 
         if (registrosFiltrados.length === 0) {
-            console.warn("⚠️ No hay registros que mostrar tras el filtro.");
             resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: orange;">No se encontraron registros para esta selección.</p>';
-            console.groupEnd();
             return;
         }
 
@@ -386,7 +353,6 @@ async function ejecutarConsultaEmisor(issuerCode) {
             const id = item.type_id || item.id || 'N/A';
             const cat = item.category || 'N/A';
             const subName = item.object_type?.name || 'N/A';
-
             const minYear = item.min_year || '';
             const maxYear = item.max_year || '';
             const rangoAnios = (minYear || maxYear) ? `${minYear} - ${maxYear}` : 'No especificado';
@@ -396,20 +362,12 @@ async function ejecutarConsultaEmisor(issuerCode) {
             const imgReverse = item.reverse_thumbnail || item.reverse_pic || '';
             
             let imagenesHtml = '';
-            if (imgObverse) {
-                imagenesHtml += `<img src="${imgObverse}" class="img-obverse" alt="${title} - Anverso" title="Anverso">`;
-            }
-            if (imgReverse) {
-                imagenesHtml += `<img src="${imgReverse}" class="img-reverse" alt="${title} - Reverso" title="Reverso">`;
-            }
-            if (!imgObverse && !imgReverse) {
-                imagenesHtml = `<img src="https://via.placeholder.com/105?text=Sin+Imagen" alt="Sin Imagen">`;
-            }
+            if (imgObverse) imagenesHtml += `<img src="${imgObverse}" class="img-obverse" alt="${title} - Anverso" title="Anverso">`;
+            if (imgReverse) imagenesHtml += `<img src="${imgReverse}" class="img-reverse" alt="${title} - Reverso" title="Reverso">`;
+            if (!imgObverse && !imgReverse) imagenesHtml = `<img src="https://via.placeholder.com/105?text=Sin+Imagen" alt="Sin Imagen">`;
 
             card.innerHTML = `
-                <div class="coin-images">
-                    ${imagenesHtml}
-                </div>
+                <div class="coin-images">${imagenesHtml}</div>
                 <div class="coin-info">
                     <h3 class="coin-title">[#${index + 1}] ${title}</h3>
                     <p class="coin-meta">
@@ -426,17 +384,14 @@ async function ejecutarConsultaEmisor(issuerCode) {
             resultsDiv.appendChild(card);
         });
 
-        // 6. Configurar el evento para los botones de añadir a la colección
         resultsDiv.querySelectorAll('.btn-add-collection').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const btn = e.target;
                 const card = btn.closest('.item');
                 const typeId = btn.getAttribute('data-id');
 
-                // Extraemos las URLs originales del DOM
                 const obverseImgElement = card.querySelector('.img-obverse');
                 const reverseImgElement = card.querySelector('.img-reverse');
-
                 const obverseUrlOriginal = obverseImgElement ? obverseImgElement.src : '';
                 const reverseUrlOriginal = reverseImgElement ? reverseImgElement.src : '';
 
@@ -447,16 +402,11 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 btn.textContent = 'Subiendo imágenes...';
 
                 try {
-                    // 1. Descargamos y subimos las imágenes desde el navegador al Storage de Supabase
-                    console.log(`Iniciando subida al Storage para la moneda ID: ${typeId}`);
                     const obverseUrlPropia = await subirImagenASupabase(obverseUrlOriginal, typeId, 'anverso');
                     const reverseUrlPropia = await subirImagenASupabase(reverseUrlOriginal, typeId, 'reverso');
 
                     btn.textContent = 'Guardando datos...';
-                    console.log(`Enviando a Edge Function -> ID: ${typeId} | Anverso: ${obverseUrlPropia} | Reverso: ${reverseUrlPropia}`);
-
-                    // 2. Llamamos a la Edge Function pasando las URLs ya procesadas de tu Storage
-                    const { data, error } = await supabaseClient.functions.invoke('add-item', {
+                    const { error } = await supabaseClient.functions.invoke('add-item', {
                         body: { 
                             typeId: parseInt(typeId, 10),
                             obverseUrl: obverseUrlPropia,
@@ -466,22 +416,17 @@ async function ejecutarConsultaEmisor(issuerCode) {
 
                     if (error) throw error;
 
-                    console.log("Respuesta de la Edge Function:", data);
                     btn.style.backgroundColor = '#155724';
                     btn.textContent = '¡Guardado!';
-                    
                     setTimeout(() => {
                         btn.textContent = textoOriginal;
                         btn.style.backgroundColor = '#28a745';
                         btn.disabled = false;
                     }, 3000);
-
                 } catch (err) {
-                    console.error("Error al guardar en la colección:", err);
                     alert(`Error al guardar la pieza: ${err.message}`);
                     btn.textContent = 'Error';
                     btn.style.backgroundColor = '#dc3545';
-                    
                     setTimeout(() => {
                         btn.textContent = textoOriginal;
                         btn.style.backgroundColor = '#28a745';
@@ -491,24 +436,29 @@ async function ejecutarConsultaEmisor(issuerCode) {
             });
         });
 
-        console.log("✅ Renderizado finalizado con éxito.");
-
     } catch (err) {
         if (loading) loading.classList.add('hidden');
-        console.error("❌ Error crítico en ejecutarConsultaEmisor:", err);
         resultsDiv.innerHTML = `<p style="color: red; grid-column: 1 / -1; text-align: center;">Error: ${err.message}</p>`;
-    } finally {
-        console.groupEnd();
     }
 }
 
 function probarConsultaEmisor(e) {
     e.preventDefault();
-    console.log("Formulario enviado mediante botón de búsqueda.");
-    const issuer = document.getElementById('issuer').value;
+    const issuerInput = document.getElementById('issuer-input');
+    let issuer = document.getElementById('issuer').value;
+
+    if (!issuer && issuerInput && issuerInput.value.trim() !== "") {
+        const textoEscrito = issuerInput.value.trim().toLowerCase();
+        const coincidencia = issuersGlobal.find(iss => (iss.name || '').toLowerCase() === textoEscrito);
+        if (coincidencia) {
+            issuer = coincidencia.code || coincidencia.id;
+            document.getElementById('issuer').value = issuer;
+        }
+    }
+
     if (issuer) {
         ejecutarConsultaEmisor(issuer);
     } else {
-        alert("Por favor, selecciona o escribe un emisor (país) válido.");
+        alert("Por favor, selecciona o escribe un país/emisor válido de la lista.");
     }
 }
