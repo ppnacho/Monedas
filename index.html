@@ -25,14 +25,15 @@
                             <input type="text" id="q" placeholder="Ej. 2 Euros, Alfonso XII...">
                         </div>
 
-                        <!-- Emisor / País (Optimizado con datalist para móvil y PC) -->
-                        <div class="form-group">
+                        <!-- Emisor / País (Autocompletado personalizado móvil/PC) -->
+                        <div class="form-group" style="position: relative;">
                             <label for="issuer-input">País / Emisor:</label>
                             <input type="text" id="issuer-input" placeholder="Escribe para buscar país..." autocomplete="off">
-                            <datalist id="lista-emisores">
-                                <!-- Las opciones se cargarán aquí dinámicamente -->
-                            </datalist>
-                            <!-- Campo oculto para mantener la compatibilidad con tu JS existente -->
+                            
+                            <!-- Contenedor flotante para las sugerencias -->
+                            <div id="lista-emisores" class="custom-suggestions-dropdown hidden"></div>
+
+                            <!-- Campo oculto para mantener la compatibilidad con tu lógica de búsqueda -->
                             <input type="hidden" id="issuer" name="issuer">
                         </div>
 
@@ -55,7 +56,7 @@
                         <!-- Año -->
                         <div class="form-group">
                             <label for="year">Año:</label>
-                            <input type="text" id="year" placeholder="Ej. 2023, -2000, 2000-, 1500-1600" title="Formatos admitidos:\n- Año exacto: 1566\n- Hasta un año (-AÑO): -2000 (hasta el 2000)\n- Desde un año (AÑO-): 2000- (desde el 2000)\n- Rango (AÑO-AÑO): 1500-1600">
+                            <input type="text" id="year" placeholder="Ej. 2023, -2000, 2000-, 1500-1600">
                         </div>
                     </div>
 
