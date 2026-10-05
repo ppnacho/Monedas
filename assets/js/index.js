@@ -326,15 +326,15 @@ async function ejecutarConsultaEmisor(issuerCode) {
             const rangoAnios = (minYear || maxYear) ? `${minYear} - ${maxYear}` : 'No especificado';
             const emisorNombre = item.issuer?.name || 'Desconocido';
 
-            const imgObverse = item.obverse_thumbnail || '';
-            const imgReverse = item.reverse_thumbnail || '';
+            const imgObverse = item.obverse_thumbnail || item.obverse_pic || item.image || '';
+            const imgReverse = item.reverse_thumbnail || item.reverse_pic || '';
             
             let imagenesHtml = '';
             if (imgObverse) {
-                imagenesHtml += `<img src="${imgObverse}" alt="${title} - Anverso" title="Anverso">`;
+                imagenesHtml += `<img src="${imgObverse}" class="img-obverse" alt="${title} - Anverso" title="Anverso">`;
             }
             if (imgReverse) {
-                imagenesHtml += `<img src="${imgReverse}" alt="${title} - Reverso" title="Reverso">`;
+                imagenesHtml += `<img src="${imgReverse}" class="img-reverse" alt="${title} - Reverso" title="Reverso">`;
             }
             if (!imgObverse && !imgReverse) {
                 imagenesHtml = `<img src="https://via.placeholder.com/105?text=Sin+Imagen" alt="Sin Imagen">`;
@@ -351,7 +351,7 @@ async function ejecutarConsultaEmisor(issuerCode) {
                         Categoría: <strong>${cat}</strong> | Subtipo: <strong>${subName}</strong>
                     </p>
                     <div style="margin-top: 10px;">
-                        <button class="btn-add-collection" data-id="${id}" data-obverse="${imgObverse}" data-reverse="${imgReverse}" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        <button class="btn-add-collection" data-id="${id}" style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
                             Añadir a la colección
                         </button>
                     </div>
@@ -364,9 +364,15 @@ async function ejecutarConsultaEmisor(issuerCode) {
         resultsDiv.querySelectorAll('.btn-add-collection').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const btn = e.target;
+                const card = btn.closest('.item');
                 const typeId = btn.getAttribute('data-id');
-                const obverseUrl = btn.getAttribute('data-obverse');
-                const reverseUrl = btn.getAttribute('data-reverse');
+
+                // Extraemos las URLs directamente del DOM de la tarjeta pintada
+                const obverseImgElement = card.querySelector('.img-obverse');
+                const reverseImgElement = card.querySelector('.img-reverse');
+
+                const obverseUrl = obverseImgElement ? obverseImgElement.src : '';
+                const reverseUrl = reverseImgElement ? reverseImgElement.src : '';
 
                 if (!typeId || typeId === 'N/A') return;
 
@@ -374,14 +380,14 @@ async function ejecutarConsultaEmisor(issuerCode) {
                 btn.disabled = true;
                 btn.textContent = 'Guardando...';
 
-                console.log(`Enviando petición a la Edge Function 'add-item' para el ID: ${typeId}`);
+                console.log(`Enviando a Edge Function -> ID: ${typeId} | Anverso: ${obverseUrl} | Reverso: ${reverseUrl}`);
 
                 try {
                     const { data, error } = await supabaseClient.functions.invoke('add-item', {
                         body: { 
                             typeId: parseInt(typeId, 10),
-                            obverseUrl: obverseUrl || '',
-                            reverseUrl: reverseUrl || ''
+                            obverseUrl: obverseUrl,
+                            reverseUrl: reverseUrl
                         }
                     });
 
