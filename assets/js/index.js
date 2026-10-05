@@ -172,6 +172,42 @@ function filtrarSubtiposPorCategoria() {
     console.log("Subtipos filtrados según categoría:", categoriaSeleccionada);
 }
 
+// Función auxiliar para descargar la imagen desde el navegador y subirla a Supabase Storage
+async function subirImagenASupabase(urlExterna, numistaId, tipo) {
+  if (!urlExterna || urlExterna.trim() === "") return null;
+
+  try {
+    console.log(`Descargando imagen desde el navegador: ${urlExterna}`);
+    const response = await fetch(urlExterna);
+    if (!response.ok) throw new Error('Error al descargar la imagen');
+    
+    const blob = await response.blob();
+    const fileName = `${numistaId}_${tipo}.jpg`;
+
+    // Sube el archivo directamente al bucket 'monedas-img' desde el cliente
+    const { data, error } = await supabaseClient.storage
+      .from('monedas-img')
+      .upload(fileName, blob, { upsert: true });
+
+    if (error) {
+      console.error("Error subiendo a Supabase Storage:", error.message);
+      return urlExterna; // Fallback a la URL original si falla
+    }
+
+    // Obtiene la URL pública del archivo en tu Storage
+    const { data: publicUrlData } = supabaseClient.storage
+      .from('monedas-img')
+      .getPublicUrl(data.path);
+
+    console.log(`✅ Imagen subida a tu Storage con éxito: ${publicUrlData.publicUrl}`);
+    return publicUrlData.publicUrl;
+
+  } catch (err) {
+    console.warn("No se pudo subir desde el navegador, usando URL directa:", err);
+    return urlExterna; // Fallback
+  }
+}
+
 // 5. Consulta ejecutada unívocamente al pulsar el botón de búsqueda
 async function ejecutarConsultaEmisor(issuerCode) {
     console.group("🚀 [DEBUG EXTENDIDO] INICIANDO CONSULTA DE EMISOR");
@@ -360,34 +396,41 @@ async function ejecutarConsultaEmisor(issuerCode) {
             resultsDiv.appendChild(card);
         });
 
-        // 6. Configurar el evento para los botones de añadir a la colección llamando a la Edge Function 'add-item'
+        // 6. Configurar el evento para los botones de añadir a la colección
         resultsDiv.querySelectorAll('.btn-add-collection').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const btn = e.target;
                 const card = btn.closest('.item');
                 const typeId = btn.getAttribute('data-id');
 
-                // Extraemos las URLs directamente del DOM de la tarjeta pintada
+                // Extraemos las URLs originales del DOM
                 const obverseImgElement = card.querySelector('.img-obverse');
                 const reverseImgElement = card.querySelector('.img-reverse');
 
-                const obverseUrl = obverseImgElement ? obverseImgElement.src : '';
-                const reverseUrl = reverseImgElement ? reverseImgElement.src : '';
+                const obverseUrlOriginal = obverseImgElement ? obverseImgElement.src : '';
+                const reverseUrlOriginal = reverseImgElement ? reverseImgElement.src : '';
 
                 if (!typeId || typeId === 'N/A') return;
 
                 const textoOriginal = btn.textContent;
                 btn.disabled = true;
-                btn.textContent = 'Guardando...';
-
-                console.log(`Enviando a Edge Function -> ID: ${typeId} | Anverso: ${obverseUrl} | Reverso: ${reverseUrl}`);
+                btn.textContent = 'Subiendo imágenes...';
 
                 try {
+                    // 1. Descargamos y subimos las imágenes desde el navegador al Storage de Supabase
+                    console.log(`Iniciando subida al Storage para la moneda ID: ${typeId}`);
+                    const obverseUrlPropia = await subirImagenASupabase(obverseUrlOriginal, typeId, 'anverso');
+                    const reverseUrlPropia = await subirImagenASupabase(reverseUrlOriginal, typeId, 'reverso');
+
+                    btn.textContent = 'Guardando datos...';
+                    console.log(`Enviando a Edge Function -> ID: ${typeId} | Anverso: ${obverseUrlPropia} | Reverso: ${reverseUrlPropia}`);
+
+                    // 2. Llamamos a la Edge Function pasando las URLs ya procesadas de tu Storage
                     const { data, error } = await supabaseClient.functions.invoke('add-item', {
                         body: { 
                             typeId: parseInt(typeId, 10),
-                            obverseUrl: obverseUrl,
-                            reverseUrl: reverseUrl
+                            obverseUrl: obverseUrlPropia,
+                            reverseUrl: reverseUrlPropia
                         }
                     });
 
