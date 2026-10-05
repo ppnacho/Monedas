@@ -1,5 +1,8 @@
 import { supabaseClient } from './supabaseClient.js';
 
+// Lista maestra global de emisores para asociar nombre con código/ID
+let issuersGlobal = [];
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOMContentLoaded disparado. Inicializando aplicación...");
     cargarEmisores();
@@ -26,6 +29,30 @@ document.addEventListener('DOMContentLoaded', () => {
             filtrarSubtiposPorCategoria(); // Actualizamos las opciones visibles del selector de subtipos
         });
     }
+
+    // NUEVO: Sincronizar el input de texto del emisor con el input oculto (datalist)
+    const issuerInput = document.getElementById('issuer-input');
+    const issuerHidden = document.getElementById('issuer');
+    const listaEmisores = document.getElementById('lista-emisores');
+
+    if (issuerInput && issuerHidden && listaEmisores) {
+        issuerInput.addEventListener('input', (e) => {
+            const valorEscrito = e.target.value.trim();
+            let codigoEncontrado = "";
+
+            // Buscamos si el texto escrito coincide exactamente con algún nombre de la lista maestra
+            const emisorCoincidente = issuersGlobal.find(
+                iss => (iss.name || '').toLowerCase() === valorEscrito.toLowerCase()
+            );
+
+            if (emisorCoincidente) {
+                codigoEncontrado = emisorCoincidente.code || emisorCoincidente.id;
+            }
+
+            // Asignamos el código real al input oculto (o el texto libre si no hace match exacto)
+            issuerHidden.value = codigoEncontrado || valorEscrito;
+        });
+    }
 });
 
 function asegurarArray(data) {
@@ -39,11 +66,11 @@ function asegurarArray(data) {
     return [];
 }
 
-// 1. Cargar la lista de emisores (única llamada inicial automática permitida)
+// 1. Cargar la lista de emisores en el datalist (Optimizado para evitar el select lento)
 async function cargarEmisores() {
-    const issuerSelect = document.getElementById('issuer');
-    if (!issuerSelect) {
-        console.warn("No se encontró el elemento select de emisores en el DOM.");
+    const listaEmisores = document.getElementById('lista-emisores');
+    if (!listaEmisores) {
+        console.warn("No se encontró el elemento datalist 'lista-emisores' en el DOM.");
         return;
     }
 
@@ -57,17 +84,20 @@ async function cargarEmisores() {
         
         if (error) throw error;
         
-        const issuers = asegurarArray(data);
-        issuers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        issuersGlobal = asegurarArray(data);
+        issuersGlobal.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-        issuers.forEach(issuer => {
+        listaEmisores.innerHTML = '';
+        issuersGlobal.forEach(issuer => {
             const option = document.createElement('option');
-            option.value = issuer.code || issuer.id; 
-            option.textContent = issuer.name || issuer.code;
-            issuerSelect.appendChild(option);
+            // El value del option en un datalist es lo que ve y escribe el usuario (el nombre)
+            option.value = issuer.name || issuer.code;
+            // Guardamos el código real en un dataset por si lo necesitamos procesar visualmente
+            option.dataset.code = issuer.code || issuer.id;
+            listaEmisores.appendChild(option);
         });
 
-        console.log(`Se han cargado ${issuers.length} emisores en el selector.`);
+        console.log(`Se han cargado ${issuersGlobal.length} emisores en el datalist.`);
 
     } catch (err) {
         console.error("No se pudieron cargar los emisores:", err);
@@ -479,6 +509,6 @@ function probarConsultaEmisor(e) {
     if (issuer) {
         ejecutarConsultaEmisor(issuer);
     } else {
-        alert("Por favor, selecciona al menos un emisor (país).");
+        alert("Por favor, selecciona o escribe un emisor (país) válido.");
     }
 }
