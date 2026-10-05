@@ -25,12 +25,15 @@
                             <input type="text" id="q" placeholder="Ej. 2 Euros, Alfonso XII...">
                         </div>
 
-                        <!-- Emisor / País -->
+                        <!-- Emisor / País (Optimizado con datalist para móvil y PC) -->
                         <div class="form-group">
-                            <label for="issuer">País / Emisor:</label>
-                            <select id="issuer">
-                                <option value="">-- Todos los emisores --</option>
-                            </select>
+                            <label for="issuer-input">País / Emisor:</label>
+                            <input type="text" id="issuer-input" placeholder="Escribe para buscar país..." autocomplete="off">
+                            <datalist id="lista-emisores">
+                                <!-- Las opciones se cargarán aquí dinámicamente -->
+                            </datalist>
+                            <!-- Campo oculto para mantener la compatibilidad con tu JS existente -->
+                            <input type="hidden" id="issuer" name="issuer">
                         </div>
 
                         <!-- Categoría -->
