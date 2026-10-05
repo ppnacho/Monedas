@@ -64,16 +64,18 @@ function inicializarAutocompletadoEmisor() {
 
     if (!issuerInput || !issuerHidden || !dropdown) return;
 
-    // Aplicar estilos básicos para que actúe como lista flotante
+    // Estilos actualizados: Fondo blanco, texto negro y diseño limpio
     dropdown.style.position = 'absolute';
     dropdown.style.top = '100%';
     dropdown.style.left = '0';
     dropdown.style.right = '0';
     dropdown.style.maxHeight = '200px';
     dropdown.style.overflowY = 'auto';
-    dropdown.style.backgroundColor = 'var(--bg-card, #222)';
-    dropdown.style.border = '1px solid #444';
+    dropdown.style.backgroundColor = '#ffffff'; // Fondo blanco
+    dropdown.style.color = '#000000';           // Texto negro principal
+    dropdown.style.border = '1px solid #ccc';
     dropdown.style.borderRadius = '0 0 6px 6px';
+    dropdown.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
     dropdown.style.zIndex = '1000';
 
     function mostrarSugerencias(filtro = '') {
@@ -93,10 +95,19 @@ function inicializarAutocompletadoEmisor() {
         filtrados.slice(0, 50).forEach(issuer => {
             const div = document.createElement('div');
             div.textContent = issuer.name;
-            div.style.padding = '8px 12px';
+            div.style.padding = '10px 12px';
             div.style.cursor = 'pointer';
-            div.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+            div.style.color = '#000000'; // Asegurar texto negro en cada opción
+            div.style.borderBottom = '1px solid #eee';
             
+            // Efecto visual al pasar el ratón por encima
+            div.addEventListener('mouseenter', () => {
+                div.style.backgroundColor = '#f0f0f0';
+            });
+            div.addEventListener('mouseleave', () => {
+                div.style.backgroundColor = '#ffffff';
+            });
+
             div.addEventListener('mousedown', (e) => {
                 e.preventDefault(); 
                 issuerInput.value = issuer.name;
