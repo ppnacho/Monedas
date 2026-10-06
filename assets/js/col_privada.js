@@ -17,10 +17,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnReset = document.getElementById('btnResetPrivada');
     if (btnReset) {
         btnReset.addEventListener('click', () => {
+            // 1. Limpiamos los inputs del formulario
             document.getElementById('qPrivada').value = '';
             document.getElementById('issuerPrivada').value = '';
             document.getElementById('yearPrivada').value = '';
-            consultarColeccionConFiltros();
+
+            // 2. Limpiamos los resultados de la pantalla
+            const resultsDiv = document.getElementById('resultsPrivada');
+            if (resultsDiv) {
+                resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #888;">Introduce un criterio de búsqueda y pulsa "Filtrar colección".</p>';
+            }
         });
     }
 });
