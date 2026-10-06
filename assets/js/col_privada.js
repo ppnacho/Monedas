@@ -1,14 +1,12 @@
 import { supabaseClient } from './supabaseClient.js';
 
 let issuersPrivadaGlobal = [];
-let tiposPrivadaGlobal = [];
-let categoriasPrivadaGlobal = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Inicializando vista de Colección Privada...");
     
-    // 1. Cargar emisores, tipos y categorías únicos desde la base de datos local
-    cargarFiltrosLocales();
+    // 1. Cargar la lista de emisores únicos desde la base de datos local
+    cargarEmisoresLocales();
 
     // 2. Estado inicial limpio (sin resultados automáticos)
     const resultsDiv = document.getElementById('resultsPrivada');
@@ -45,51 +43,28 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarAutocompletadoEmisorPrivada();
 });
 
-// Cargar metadatos únicos existentes en la colección privada local
-async function cargarFiltrosLocales() {
+// Cargar emisores únicos existentes en la colección privada local (acción original que sí funciona)
+async function cargarEmisoresLocales() {
     try {
         const { data: responseData, error } = await supabaseClient.functions.invoke('col-privada', {
-            body: { action: 'get_filters' } // Solicitamos los filtros globales
+            body: { action: 'get_issuers' }
         });
 
         if (error) throw error;
 
-        // Cargar emisores
         const listaEmisores = responseData?.issuers || [];
         if (listaEmisores.length > 0) {
             issuersPrivadaGlobal = listaEmisores.map(nombre => ({ name: nombre }));
+            console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores locales correctamente.`);
+        } else {
+            console.log("No se encontraron emisores todavía o la tabla está vacía.");
         }
-
-        // Cargar tipos (ej. "Monedas")
-        const listaTipos = responseData?.types || [];
-        tiposPrivadaGlobal = listaTipos.filter(Boolean).sort();
-        poblarSelect('tipoPrivada', tiposPrivadaGlobal, '-- Todos los tipos --');
-
-        // Cargar categorías (ej. "Monedas circulantes conmemorativas")
-        const listaCategorias = responseData?.categories || [];
-        categoriasPrivadaGlobal = listaCategorias.filter(Boolean).sort();
-        poblarSelect('categoriaPrivada', categoriasPrivadaGlobal, '-- Todas las categorías --');
-
     } catch (err) {
-        console.error("Error al cargar metadatos locales:", err);
+        console.error("Error al cargar emisores locales:", err);
     }
 }
 
-// Función genérica para poblar los selectores dinámicamente
-function poblarSelect(elementId, items, textoDefault) {
-    const select = document.getElementById(elementId);
-    if (!select) return;
-
-    select.innerHTML = `<option value="">${textoDefault}</option>`;
-    items.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item;
-        option.textContent = item;
-        select.appendChild(option);
-    });
-}
-
-// Autocompletado estricto (startsWith) para el emisor
+// Autocompletado estricto con startsWith
 function inicializarAutocompletadoEmisorPrivada() {
     const issuerInput = document.getElementById('issuerPrivadaInput');
     const issuerHidden = document.getElementById('issuerPrivada');
@@ -119,7 +94,7 @@ function inicializarAutocompletadoEmisorPrivada() {
             return;
         }
 
-        // Estricto: solo los que empiezan por el texto introducido
+        // Estricto: coincide solo si empieza por el texto introducido
         const filtrados = issuersPrivadaGlobal.filter(iss => 
             (iss.name || '').toLowerCase().startsWith(texto)
         );
