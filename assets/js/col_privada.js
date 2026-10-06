@@ -1,8 +1,15 @@
 import { supabaseClient } from './supabaseClient.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Inicializando vista de Colección Privada vía Edge Function...");
+    console.log("Inicializando vista de Colección Privada...");
     
+    // Eliminamos la carga automática inicial para que no muestre resultados de entrada.
+    // Dejamos el contenedor limpio o con un mensaje guía si lo deseas:
+    const resultsDiv = document.getElementById('resultsPrivada');
+    if (resultsDiv) {
+        resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #888;">Introduce un criterio de búsqueda y pulsa "Filtrar colección".</p>';
+    }
+
     const filterForm = document.getElementById('filterFormPrivada');
     if (filterForm) {
         filterForm.addEventListener('submit', (e) => {
@@ -20,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('yearPrivada').value = '';
 
             // 2. Limpiamos los resultados de la pantalla
-            const resultsDiv = document.getElementById('resultsPrivada');
             if (resultsDiv) {
                 resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #888;">Introduce un criterio de búsqueda y pulsa "Filtrar colección".</p>';
             }
