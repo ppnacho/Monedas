@@ -38,7 +38,7 @@ async function consultarColeccionConFiltros() {
 
     try {
         // Invocamos la Edge Function pasando los parámetros de filtrado
-        const { data: responseData, error } = await supabaseClient.functions.invoke('coleccion-filtro', {
+        const { data: responseData, error } = await supabaseClient.functions.invoke('col-privada', {
             body: { q, issuer, year }
         });
 
