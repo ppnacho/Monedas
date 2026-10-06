@@ -3,8 +3,10 @@ import { supabaseClient } from './supabaseClient.js';
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Inicializando vista de Colección Privada...");
     
-    // Eliminamos la carga automática inicial para que no muestre resultados de entrada.
-    // Dejamos el contenedor limpio o con un mensaje guía si lo deseas:
+    // 1. Cargar la lista de países/emisores únicos para el select/datalist
+    cargarOpcionesEmisores();
+
+    // 2. Estado inicial limpio (sin resultados automáticos)
     const resultsDiv = document.getElementById('resultsPrivada');
     if (resultsDiv) {
         resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #888;">Introduce un criterio de búsqueda y pulsa "Filtrar colección".</p>';
@@ -21,18 +23,48 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnReset = document.getElementById('btnResetPrivada');
     if (btnReset) {
         btnReset.addEventListener('click', () => {
-            // 1. Limpiamos los inputs del formulario
+            // Limpiar inputs del formulario
             document.getElementById('qPrivada').value = '';
             document.getElementById('issuerPrivada').value = '';
             document.getElementById('yearPrivada').value = '';
 
-            // 2. Limpiamos los resultados de la pantalla
+            // Limpiar resultados
             if (resultsDiv) {
                 resultsDiv.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #888;">Introduce un criterio de búsqueda y pulsa "Filtrar colección".</p>';
             }
         });
     }
 });
+
+// Función para obtener los emisores únicos y poblar el datalist
+async function cargarOpcionesEmisores() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('coleccion_monedas')
+            .select('emisor');
+
+        if (error) throw error;
+
+        if (data) {
+            // Extraer valores únicos, filtrar nulos y ordenar alfabéticamente
+            const emisoresUnicos = [...new Set(data.map(item => item.emisor))]
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b));
+
+            const datalist = document.getElementById('issuerListOptions');
+            if (datalist) {
+                datalist.innerHTML = '';
+                emisoresUnicos.forEach(emisor => {
+                    const option = document.createElement('option');
+                    option.value = emisor;
+                    datalist.appendChild(option);
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Error al cargar la lista de emisores:", err);
+    }
+}
 
 async function consultarColeccionConFiltros() {
     const loading = document.getElementById('loadingPrivada');
