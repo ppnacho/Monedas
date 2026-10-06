@@ -3,7 +3,7 @@ import { supabaseClient } from './supabaseClient.js';
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Inicializando vista de Colección Privada...");
     
-    // 1. Cargar la lista de países/emisores únicos para el select/datalist
+    // 1. Cargar la lista de países/emisores únicos para el datalist
     cargarOpcionesEmisores();
 
     // 2. Estado inicial limpio (sin resultados automáticos)
@@ -133,7 +133,6 @@ function renderizarPiezas(piezas) {
 
         let imagenesHtml = '';
 
-        // REQUISITO ESTRICTO: Si img_stored es true, se cargan del storage local. Si es false, aviso para ejecutar Python.
         if (imgStored) {
             let imgAnversoUrl = '';
             let imgReversoUrl = '';
@@ -154,9 +153,7 @@ function renderizarPiezas(piezas) {
                 imagenesHtml = `<img src="https://via.placeholder.com/105?text=Sin+Imagen" alt="Sin Imagen">`;
             }
         } else {
-            imagenesHtml = `<div style="width: 100%; height: 140px; background: #333; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; border-radius: 4px; color: #ffc107; font-size: 0.85rem; font-weight: bold;">
-                ⚠️ Pendiente sincronizar imágenes (Ejecutar Python)
-            </div>`;
+            imagenesHtml = `<img src="https://via.placeholder.com/105?text=Sin+Imagen" alt="Sin Imagen">`;
         }
 
         card.innerHTML = `
