@@ -1,16 +1,16 @@
 import { supabaseClient } from './supabaseClient.js';
 
-let coleccionGlobal = [];
-
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Inicializando vista de Colección Privada...");
-    cargarColeccionPrivada();
+    console.log("Inicializando vista de Colección Privada vía Edge Function...");
+    
+    // Cargar inicialmente todos los registros (sin filtros)
+    consultarColeccionConFiltros();
 
     const filterForm = document.getElementById('filterFormPrivada');
     if (filterForm) {
         filterForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            aplicarFiltrosAvanzados();
+            consultarColeccionConFiltros();
         });
     }
 
@@ -20,105 +20,42 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('qPrivada').value = '';
             document.getElementById('issuerPrivada').value = '';
             document.getElementById('yearPrivada').value = '';
-            renderizarPiezas(coleccionGlobal);
+            consultarColeccionConFiltros();
         });
     }
 });
 
-async function cargarColeccionPrivada() {
+async function consultarColeccionConFiltros() {
     const loading = document.getElementById('loadingPrivada');
     const resultsDiv = document.getElementById('resultsPrivada');
+
+    const q = document.getElementById('qPrivada')?.value?.trim() || '';
+    const issuer = document.getElementById('issuerPrivada')?.value?.trim() || '';
+    const year = document.getElementById('yearPrivada')?.value?.trim() || '';
 
     if (loading) loading.classList.remove('hidden');
     if (resultsDiv) resultsDiv.innerHTML = '';
 
     try {
-        const { data, error } = await supabaseClient
-            .from('coleccion_monedas')
-            .select('*')
-            .order('created_at', { ascending: false });
+        // Invocamos la Edge Function pasando los parámetros de filtrado
+        const { data: responseData, error } = await supabaseClient.functions.invoke('coleccion-filtro', {
+            body: { q, issuer, year }
+        });
 
         if (error) throw error;
 
-        coleccionGlobal = data || [];
-        console.log(`Se han cargado ${coleccionGlobal.length} piezas de la colección privada.`);
+        const piezas = responseData?.data || [];
+        console.log(`Se han obtenido ${piezas.length} piezas filtradas desde la Edge Function.`);
 
         if (loading) loading.classList.add('hidden');
 
-        renderizarPiezas(coleccionGlobal);
+        renderizarPiezas(piezas);
 
     } catch (err) {
         if (loading) loading.classList.add('hidden');
-        console.error("Error al cargar la colección privada:", err);
-        resultsDiv.innerHTML = `<p style="color: red; grid-column: 1 / -1; text-align: center;">Error al cargar los datos: ${err.message}</p>`;
+        console.error("Error al consultar la colección privada:", err);
+        resultsDiv.innerHTML = `<p style="color: red; grid-column: 1 / -1; text-align: center;">Error al consultar los datos: ${err.message}</p>`;
     }
-}
-
-function aplicarFiltrosAvanzados() {
-    const searchTerm = document.getElementById('qPrivada')?.value?.trim().toLowerCase() || '';
-    const issuerTerm = document.getElementById('issuerPrivada')?.value?.trim().toLowerCase() || '';
-    const yearValue = document.getElementById('yearPrivada')?.value?.trim() || '';
-
-    const filtradas = coleccionGlobal.filter(item => {
-        // 1. Filtro por Descripción (Título) - Insensible a mayúsculas/minúsculas y coincidencia parcial
-        const tituloStr = (item.title || item.nombre || '').toLowerCase();
-        if (searchTerm !== "" && !tituloStr.includes(searchTerm)) {
-            return false;
-        }
-
-        // 2. Filtro por País / Emisor - Insensible a mayúsculas/minúsculas y parcial
-        const emisorStr = (item.issuer || '').toLowerCase();
-        if (issuerTerm !== "" && !emisorStr.includes(issuerTerm)) {
-            return false;
-        }
-
-        // 3. Filtro por Año (con las mismas consideraciones exactas que index.html)
-        if (yearValue !== "") {
-            const minYear = item.min_year ? parseInt(item.min_year, 10) : null;
-            const maxYear = item.max_year ? parseInt(item.max_year, 10) : null;
-            const issueYear = item.year ? parseInt(item.year, 10) : null;
-
-            if (minYear === null && maxYear === null && issueYear === null) return false;
-
-            const pMin = minYear !== null ? minYear : (maxYear !== null ? maxYear : issueYear);
-            const pMax = maxYear !== null ? maxYear : (minYear !== null ? minYear : issueYear);
-
-            // Formato: -AÑO (hasta el año X)
-            if (yearValue.startsWith('-') && !yearValue.endsWith('-')) {
-                const targetYear = parseInt(yearValue.substring(1), 10);
-                if (!isNaN(targetYear) && pMin > targetYear) return false;
-            }
-            // Formato: AÑO- (desde el año X)
-            else if (yearValue.endsWith('-') && !yearValue.startsWith('-')) {
-                const targetYear = parseInt(yearValue.slice(0, -1), 10);
-                if (!isNaN(targetYear) && pMax < targetYear) return false;
-            }
-            // Formato: AÑO-AÑO (rango)
-            else if (yearValue.includes('-')) {
-                const partes = yearValue.split('-');
-                const startYear = parseInt(partes[0], 10);
-                const endYear = parseInt(partes[1], 10);
-                if (!isNaN(startYear) && !isNaN(endYear)) {
-                    if (pMin > endYear || pMax < startYear) return false;
-                }
-            }
-            // Año exacto
-            else {
-                const exactYear = parseInt(yearValue, 10);
-                if (!isNaN(exactYear)) {
-                    if (!((exactYear >= pMin && exactYear <= pMax) || (item.title && item.title.includes(yearValue)))) {
-                        return false;
-                    }
-                } else if (item.title && !item.title.includes(yearValue)) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    });
-
-    renderizarPiezas(filtradas);
 }
 
 function renderizarPiezas(piezas) {
@@ -132,14 +69,14 @@ function renderizarPiezas(piezas) {
         return;
     }
 
-    // Cabecera indicando cuántos resultados se muestran
+    // Cabecera con el total de resultados
     const contadorDiv = document.createElement('div');
     contadorDiv.style.gridColumn = '1 / -1';
     contadorDiv.style.background = 'var(--bg-card, #222)';
     contadorDiv.style.padding = '12px';
     contadorDiv.style.borderRadius = '8px';
     contadorDiv.style.marginBottom = '15px';
-    contadorDiv.innerHTML = `<p><strong>Piezas encontradas:</strong> ${piezas.length} de ${coleccionGlobal.length} totales en colección</p>`;
+    contadorDiv.innerHTML = `<p><strong>Piezas encontradas:</strong> ${piezas.length}</p>`;
     resultsDiv.appendChild(contadorDiv);
 
     piezas.forEach((item, index) => {
@@ -147,16 +84,15 @@ function renderizarPiezas(piezas) {
         card.className = 'item';
 
         const numistaId = item.numista_id || 'N/A';
-        const titulo = item.title || item.nombre || `Pieza Numista #${numistaId}`;
-        const emisor = item.issuer || 'Desconocido';
-        const minYear = item.min_year || '';
-        const maxYear = item.max_year || '';
-        const rangoAnios = (minYear || maxYear) ? `${minYear} - ${maxYear}` : 'No especificado';
-        const categoria = item.category || 'Moneda';
+        const titulo = item.titulo || `Pieza Numista #${numistaId}`;
+        const emisor = item.emisor || 'Desconocido';
+        const anios = item.anios || 'No especificado';
+        const valor = item.valor || 'N/A';
         const imgStored = item.img_stored === true;
 
         let imagenesHtml = '';
 
+        // REQUISITO ESTRICTO: Si img_stored es true, se cargan del storage local. Si es false, no carga imagen y avisa para ejecutar Python.
         if (imgStored) {
             let imgAnversoUrl = '';
             let imgReversoUrl = '';
@@ -187,8 +123,8 @@ function renderizarPiezas(piezas) {
             <div class="coin-info">
                 <h3 class="coin-title">[#${index + 1}] ${titulo}</h3>
                 <p class="coin-meta">
-                    ID Numista: <strong>${numistaId}</strong> | Emisor: <strong>${emisor}</strong> | Años: <strong>${rangoAnios}</strong><br>
-                    Categoría: <strong>${categoria}</strong> | Estado Storage: <strong style="color: ${imgStored ? '#28a745' : '#ffc107'}">${imgStored ? 'Sincronizado' : 'Pendiente'}</strong>
+                    ID Numista: <strong>${numistaId}</strong> | Emisor: <strong>${emisor}</strong> | Años: <strong>${anios}</strong><br>
+                    Valor: <strong>${valor}</strong> | Estado Storage: <strong style="color: ${imgStored ? '#28a745' : '#ffc107'}">${imgStored ? 'Sincronizado' : 'Pendiente'}</strong>
                 </p>
                 <div style="margin-top: 10px;">
                     <span style="font-size: 0.85rem; color: ${imgStored ? '#28a745' : '#ffc107'}; font-weight: bold;">
