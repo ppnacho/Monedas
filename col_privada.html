@@ -19,15 +19,35 @@
             </div>
         </header>
 
-        <!-- Filtros Rápidos o Buscador Interno de la Colección -->
+        <!-- Filtros de la Colección Privada -->
         <main>
             <section class="search-card">
-                <div class="form-grid">
-                    <div class="form-group" style="grid-column: 1 / -1;">
-                        <label for="filterPrivada">Filtrar en tu colección:</label>
-                        <input type="text" id="filterPrivada" placeholder="Busca por título, ID o emisor en tu colección...">
+                <form id="filterFormPrivada">
+                    <div class="form-grid">
+                        <!-- Búsqueda por texto (Título) -->
+                        <div class="form-group">
+                            <label for="qPrivada">Descripción (Título):</label>
+                            <input type="text" id="qPrivada" placeholder="Ej. 2 Euros, Alfonso XII...">
+                        </div>
+
+                        <!-- Emisor / País -->
+                        <div class="form-group">
+                            <label for="issuerPrivada">País / Emisor:</label>
+                            <input type="text" id="issuerPrivada" placeholder="Ej. España, Francia...">
+                        </div>
+
+                        <!-- Año -->
+                        <div class="form-group">
+                            <label for="yearPrivada">Año:</label>
+                            <input type="text" id="yearPrivada" placeholder="Ej. 2023, -2000, 2000-, 1500-1600">
+                        </div>
                     </div>
-                </div>
+
+                    <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+                        <button type="button" id="btnResetPrivada" class="btn-secondary" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Limpiar filtros</button>
+                        <button type="submit" class="btn-primary">Filtrar colección</button>
+                    </div>
+                </form>
             </section>
 
             <!-- Contenedor de Estado / Carga -->
@@ -36,7 +56,7 @@
                 <p>Cargando tu colección privada...</p>
             </div>
 
-            <!-- Contenedor de Resultados de la Colección -->
+            <!-- Contenedor de Resultados -->
             <section id="resultsPrivada" class="results-grid">
                 <!-- Las piezas guardadas se inyectarán aquí dinámicamente -->
             </section>
