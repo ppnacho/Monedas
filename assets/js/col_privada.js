@@ -109,8 +109,15 @@ function inicializarAutocompletadoEmisorPrivada() {
         dropdown.innerHTML = '';
         const texto = filtro.toLowerCase().trim();
 
+        // Si el campo está vacío, no mostramos sugerencias
+        if (!texto) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+
+        // CAMBIO CLAVE: Usar .startsWith() en lugar de .includes() para exigir que comience por el texto
         const filtrados = issuersPrivadaGlobal.filter(iss => 
-            (iss.name || '').toLowerCase().includes(texto)
+            (iss.name || '').toLowerCase().startsWith(texto)
         );
 
         if (filtrados.length === 0 || (filtrados.length === 1 && filtrados[0].name.toLowerCase() === texto)) {
