@@ -1,12 +1,13 @@
 import { supabaseClient } from './supabaseClient.js';
 
 let issuersPrivadaGlobal = [];
+let tiposPrivadaGlobal = []; // Almacena los tipos disponibles para el select dinámico
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Inicializando vista de Colección Privada...");
     
-    // 1. Cargar la lista de emisores únicos desde la base de datos local
-    cargarEmisoresLocales();
+    // 1. Cargar la lista de emisores y tipos únicos desde la base de datos local
+    cargarEmisoresYFiltrosLocales();
 
     // 2. Estado inicial limpio (sin resultados automáticos)
     const resultsDiv = document.getElementById('resultsPrivada');
@@ -30,6 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('issuerPrivadaInput').value = '';
             document.getElementById('issuerPrivada').value = '';
             document.getElementById('yearPrivada').value = '';
+            document.getElementById('categoriaPrivada').value = '';
+            document.getElementById('tipoPrivada').value = '';
 
             // Limpiar resultados
             if (resultsDiv) {
@@ -41,8 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarAutocompletadoEmisorPrivada();
 });
 
-// Cargar emisores únicos existentes en la colección privada local
-async function cargarEmisoresLocales() {
+// Cargar emisores y tipos únicos existentes en la colección privada local
+async function cargarEmisoresYFiltrosLocales() {
     try {
         const { data: responseData, error } = await supabaseClient.functions.invoke('col-privada', {
             body: { action: 'get_issuers' }
@@ -50,16 +53,35 @@ async function cargarEmisoresLocales() {
 
         if (error) throw error;
 
+        // Cargar emisores
         const listaEmisores = responseData?.issuers || [];
         if (listaEmisores.length > 0) {
             issuersPrivadaGlobal = listaEmisores.map(nombre => ({ name: nombre }));
-            console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores locales correctamente.`);
-        } else {
-            console.log("No se encontraron emisores todavía o la tabla está vacía.");
+            console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores locales.`);
         }
+
+        // Cargar tipos únicos para el selector dinámico
+        const listaTipos = responseData?.types || [];
+        tiposPrivadaGlobal = listaTipos.filter(Boolean).sort();
+        poblarSelectTipos(tiposPrivadaGlobal);
+
     } catch (err) {
-        console.error("Error al cargar emisores locales:", err);
+        console.error("Error al cargar metadatos locales:", err);
     }
+}
+
+// Poblar dinámicamente el selector de tipos en el HTML
+function poblarSelectTipos(tipos) {
+    const selectTipo = document.getElementById('tipoPrivada');
+    if (!selectTipo) return;
+
+    selectTipo.innerHTML = '<option value="">-- Todos los tipos --</option>';
+    tipos.forEach(tipo => {
+        const option = document.createElement('option');
+        option.value = tipo;
+        option.textContent = tipo;
+        selectTipo.appendChild(option);
+    });
 }
 
 // Autocompletado flotante idéntico al index.js
@@ -148,13 +170,15 @@ async function consultarColeccionConFiltros() {
     const issuerInputVal = document.getElementById('issuerPrivadaInput')?.value?.trim() || '';
     let issuer = document.getElementById('issuerPrivada')?.value?.trim() || issuerInputVal;
     const year = document.getElementById('yearPrivada')?.value?.trim() || '';
+    const categoria = document.getElementById('categoriaPrivada')?.value || '';
+    const tipo = document.getElementById('tipoPrivada')?.value || '';
 
     if (loading) loading.classList.remove('hidden');
     if (resultsDiv) resultsDiv.innerHTML = '';
 
     try {
         const { data: responseData, error } = await supabaseClient.functions.invoke('col-privada', {
-            body: { q, issuer, year }
+            body: { q, issuer, year, categoria, tipo }
         });
 
         if (error) throw error;
@@ -188,6 +212,7 @@ function renderizarPiezas(piezas) {
     contadorDiv.style.padding = '12px';
     contadorDiv.style.borderRadius = '8px';
     contadorDiv.style.marginBottom = '15px';
+    contadorDiv.style.color = '#fff';
     contadorDiv.innerHTML = `<p><strong>Piezas encontradas:</strong> ${piezas.length}</p>`;
     resultsDiv.appendChild(contadorDiv);
 
@@ -200,6 +225,8 @@ function renderizarPiezas(piezas) {
         const emisor = item.emisor || 'Desconocido';
         const anios = item.anios || 'No especificado';
         const valor = item.valor || 'N/A';
+        const categoriaItem = item.categoria || '';
+        const tipoItem = item.tipo || '';
         const imgStored = item.img_stored === true;
 
         let imagenesHtml = '';
@@ -233,7 +260,7 @@ function renderizarPiezas(piezas) {
                 <h3 class="coin-title">[#${index + 1}] ${titulo}</h3>
                 <p class="coin-meta">
                     ID Numista: <strong>${numistaId}</strong> | Emisor: <strong>${emisor}</strong> | Años: <strong>${anios}</strong><br>
-                    Valor: <strong>${valor}</strong>
+                    Valor: <strong>${valor}</strong> ${categoriaItem ? `| Categoría: <strong>${categoriaItem}</strong>` : ''} ${tipoItem ? `| Tipo: <strong>${tipoItem}</strong>` : ''}
                 </p>
             </div>
         `;
