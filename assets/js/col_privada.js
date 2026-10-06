@@ -177,8 +177,8 @@ async function consultarColeccionConFiltros() {
     const issuerInputVal = document.getElementById('issuerPrivadaInput')?.value?.trim() || '';
     let issuer = document.getElementById('issuerPrivada')?.value?.trim() || issuerInputVal;
     const year = document.getElementById('yearPrivada')?.value?.trim() || '';
-    const categoria = document.getElementById('categoriaPrivada')?.value || '';
-    const tipo = document.getElementById('tipoPrivada')?.value || '';
+    const tipo = document.getElementById('categoriaPrivada')?.value || '';
+    const categoria = document.getElementById('tipoPrivada')?.value || '';
 
     if (loading) loading.classList.remove('hidden');
     if (resultsDiv) resultsDiv.innerHTML = '';
