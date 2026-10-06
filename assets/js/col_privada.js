@@ -45,21 +45,17 @@ document.addEventListener('DOMContentLoaded', () => {
 async function cargarEmisoresLocales() {
     try {
         const { data: responseData, error } = await supabaseClient.functions.invoke('col-privada', {
-            body: { q: '', issuer: '', year: '' }
+            body: { action: 'get_issuers' }
         });
 
         if (error) throw error;
 
-        const piezas = responseData?.data || [];
-        if (piezas.length > 0) {
-            const unicos = [...new Set(piezas.map(item => item.emisor))]
-                .filter(Boolean)
-                .sort((a, b) => a.localeCompare(b));
-
-            issuersPrivadaGlobal = unicos.map(nombre => ({ name: nombre }));
+        const listaEmisores = responseData?.issuers || [];
+        if (listaEmisores.length > 0) {
+            issuersPrivadaGlobal = listaEmisores.map(nombre => ({ name: nombre }));
             console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores locales correctamente.`);
         } else {
-            console.log("No hay piezas en la colección todavía.");
+            console.log("No se encontraron emisores todavía o la tabla está vacía.");
         }
     } catch (err) {
         console.error("Error al cargar emisores locales:", err);
