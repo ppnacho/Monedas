@@ -3,9 +3,6 @@ import { supabaseClient } from './supabaseClient.js';
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Inicializando vista de Colección Privada vía Edge Function...");
     
-    // Cargar inicialmente todos los registros (sin filtros)
-    consultarColeccionConFiltros();
-
     const filterForm = document.getElementById('filterFormPrivada');
     if (filterForm) {
         filterForm.addEventListener('submit', (e) => {
