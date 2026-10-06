@@ -1,13 +1,14 @@
 import { supabaseClient } from './supabaseClient.js';
 
 let issuersPrivadaGlobal = [];
-let tiposPrivadaGlobal = []; // Almacena los tipos disponibles para el select dinámico
+let tiposPrivadaGlobal = [];
+let categoriasPrivadaGlobal = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Inicializando vista de Colección Privada...");
     
-    // 1. Cargar la lista de emisores y tipos únicos desde la base de datos local
-    cargarEmisoresYFiltrosLocales();
+    // 1. Cargar emisores, tipos y categorías únicos desde la base de datos local
+    cargarFiltrosLocales();
 
     // 2. Estado inicial limpio (sin resultados automáticos)
     const resultsDiv = document.getElementById('resultsPrivada');
@@ -44,11 +45,11 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarAutocompletadoEmisorPrivada();
 });
 
-// Cargar emisores y tipos únicos existentes en la colección privada local
-async function cargarEmisoresYFiltrosLocales() {
+// Cargar metadatos únicos existentes en la colección privada local
+async function cargarFiltrosLocales() {
     try {
         const { data: responseData, error } = await supabaseClient.functions.invoke('col-privada', {
-            body: { action: 'get_issuers' }
+            body: { action: 'get_filters' } // Solicitamos los filtros globales
         });
 
         if (error) throw error;
@@ -57,34 +58,38 @@ async function cargarEmisoresYFiltrosLocales() {
         const listaEmisores = responseData?.issuers || [];
         if (listaEmisores.length > 0) {
             issuersPrivadaGlobal = listaEmisores.map(nombre => ({ name: nombre }));
-            console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores locales.`);
         }
 
-        // Cargar tipos únicos para el selector dinámico
+        // Cargar tipos (ej. "Monedas")
         const listaTipos = responseData?.types || [];
         tiposPrivadaGlobal = listaTipos.filter(Boolean).sort();
-        poblarSelectTipos(tiposPrivadaGlobal);
+        poblarSelect('tipoPrivada', tiposPrivadaGlobal, '-- Todos los tipos --');
+
+        // Cargar categorías (ej. "Monedas circulantes conmemorativas")
+        const listaCategorias = responseData?.categories || [];
+        categoriasPrivadaGlobal = listaCategorias.filter(Boolean).sort();
+        poblarSelect('categoriaPrivada', categoriasPrivadaGlobal, '-- Todas las categorías --');
 
     } catch (err) {
         console.error("Error al cargar metadatos locales:", err);
     }
 }
 
-// Poblar dinámicamente el selector de tipos en el HTML
-function poblarSelectTipos(tipos) {
-    const selectTipo = document.getElementById('tipoPrivada');
-    if (!selectTipo) return;
+// Función genérica para poblar los selectores dinámicamente
+function poblarSelect(elementId, items, textoDefault) {
+    const select = document.getElementById(elementId);
+    if (!select) return;
 
-    selectTipo.innerHTML = '<option value="">-- Todos los tipos --</option>';
-    tipos.forEach(tipo => {
+    select.innerHTML = `<option value="">${textoDefault}</option>`;
+    items.forEach(item => {
         const option = document.createElement('option');
-        option.value = tipo;
-        option.textContent = tipo;
-        selectTipo.appendChild(option);
+        option.value = item;
+        option.textContent = item;
+        select.appendChild(option);
     });
 }
 
-// Autocompletado flotante idéntico al index.js
+// Autocompletado estricto (startsWith) para el emisor
 function inicializarAutocompletadoEmisorPrivada() {
     const issuerInput = document.getElementById('issuerPrivadaInput');
     const issuerHidden = document.getElementById('issuerPrivada');
@@ -109,13 +114,12 @@ function inicializarAutocompletadoEmisorPrivada() {
         dropdown.innerHTML = '';
         const texto = filtro.toLowerCase().trim();
 
-        // Si el campo está vacío, no mostramos sugerencias
         if (!texto) {
             dropdown.classList.add('hidden');
             return;
         }
 
-        // CAMBIO CLAVE: Usar .startsWith() en lugar de .includes() para exigir que comience por el texto
+        // Estricto: solo los que empiezan por el texto introducido
         const filtrados = issuersPrivadaGlobal.filter(iss => 
             (iss.name || '').toLowerCase().startsWith(texto)
         );
@@ -177,8 +181,8 @@ async function consultarColeccionConFiltros() {
     const issuerInputVal = document.getElementById('issuerPrivadaInput')?.value?.trim() || '';
     let issuer = document.getElementById('issuerPrivada')?.value?.trim() || issuerInputVal;
     const year = document.getElementById('yearPrivada')?.value?.trim() || '';
-    const tipo = document.getElementById('categoriaPrivada')?.value || '';
-    const categoria = document.getElementById('tipoPrivada')?.value || '';
+    const categoria = document.getElementById('categoriaPrivada')?.value || '';
+    const tipo = document.getElementById('tipoPrivada')?.value || '';
 
     if (loading) loading.classList.remove('hidden');
     if (resultsDiv) resultsDiv.innerHTML = '';
@@ -267,7 +271,7 @@ function renderizarPiezas(piezas) {
                 <h3 class="coin-title">[#${index + 1}] ${titulo}</h3>
                 <p class="coin-meta">
                     ID Numista: <strong>${numistaId}</strong> | Emisor: <strong>${emisor}</strong> | Años: <strong>${anios}</strong><br>
-                    Valor: <strong>${valor}</strong> ${categoriaItem ? `| Categoría: <strong>${categoriaItem}</strong>` : ''} ${tipoItem ? `| Tipo: <strong>${tipoItem}</strong>` : ''}
+                    Valor: <strong>${valor}</strong> ${tipoItem ? `| Tipo: <strong>${tipoItem}</strong>` : ''} ${categoriaItem ? `| Categoría: <strong>${categoriaItem}</strong>` : ''}
                 </p>
             </div>
         `;
