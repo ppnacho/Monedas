@@ -44,21 +44,22 @@ document.addEventListener('DOMContentLoaded', () => {
 // Cargar emisores únicos existentes en la colección privada local
 async function cargarEmisoresLocales() {
     try {
-        const { data, error } = await supabaseClient
-            .from('coleccion_monedas')
-            .select('emisor');
+        const { data: responseData, error } = await supabaseClient.functions.invoke('col-privada', {
+            body: { q: '', issuer: '', year: '' }
+        });
 
         if (error) throw error;
 
-        if (data && data.length > 0) {
-            const unicos = [...new Set(data.map(item => item.emisor))]
+        const piezas = responseData?.data || [];
+        if (piezas.length > 0) {
+            const unicos = [...new Set(piezas.map(item => item.emisor))]
                 .filter(Boolean)
                 .sort((a, b) => a.localeCompare(b));
 
             issuersPrivadaGlobal = unicos.map(nombre => ({ name: nombre }));
-            console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores locales.`);
+            console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores locales correctamente.`);
         } else {
-            console.log("No se encontraron emisores todavía o la tabla está vacía.");
+            console.log("No hay piezas en la colección todavía.");
         }
     } catch (err) {
         console.error("Error al cargar emisores locales:", err);
