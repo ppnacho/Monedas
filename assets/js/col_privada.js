@@ -5,8 +5,8 @@ let issuersPrivadaGlobal = [];
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Inicializando vista de Colección Privada...");
     
-    // 1. Cargar la lista de emisores únicos desde la base de datos local
-    cargarEmisoresLocales();
+    // 1. Cargar emisores, tipos y categorías desde la Edge Function
+    cargarFiltrosYMetadatos();
 
     // 2. Estado inicial limpio (sin resultados automáticos)
     const resultsDiv = document.getElementById('resultsPrivada');
@@ -43,24 +43,50 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarAutocompletadoEmisorPrivada();
 });
 
-// Cargar emisores únicos existentes en la colección privada local (acción original que sí funciona)
-async function cargarEmisoresLocales() {
+// Cargar emisores, tipos y categorías exclusivamente a través de la Edge Function
+async function cargarFiltrosYMetadatos() {
     try {
         const { data: responseData, error } = await supabaseClient.functions.invoke('col-privada', {
-            body: { action: 'get_issuers' }
+            body: { action: 'get_filters' }
         });
 
         if (error) throw error;
 
+        // 1. Cargar emisores para el autocompletado
         const listaEmisores = responseData?.issuers || [];
         if (listaEmisores.length > 0) {
             issuersPrivadaGlobal = listaEmisores.map(nombre => ({ name: nombre }));
-            console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores locales correctamente.`);
+            console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores correctamente.`);
         } else {
             console.log("No se encontraron emisores todavía o la tabla está vacía.");
         }
+
+        // 2. Poblar selector de Tipos
+        const selectTipo = document.getElementById('tipoPrivada');
+        if (selectTipo) {
+            selectTipo.innerHTML = '<option value="">-- Todos los tipos --</option>';
+            (responseData?.types || []).forEach(tipo => {
+                const opt = document.createElement('option');
+                opt.value = tipo;
+                opt.textContent = tipo;
+                selectTipo.appendChild(opt);
+            });
+        }
+
+        // 3. Poblar selector de Categorías
+        const selectCategoria = document.getElementById('categoriaPrivada');
+        if (selectCategoria) {
+            selectCategoria.innerHTML = '<option value="">-- Todas las categorías --</option>';
+            (responseData?.categories || []).forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                selectCategoria.appendChild(opt);
+            });
+        }
+
     } catch (err) {
-        console.error("Error al cargar emisores locales:", err);
+        console.error("Error al cargar filtros y metadatos desde la Edge Function:", err);
     }
 }
 
