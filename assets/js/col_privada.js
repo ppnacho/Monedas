@@ -50,13 +50,15 @@ async function cargarEmisoresLocales() {
 
         if (error) throw error;
 
-        if (data) {
+        if (data && data.length > 0) {
             const unicos = [...new Set(data.map(item => item.emisor))]
                 .filter(Boolean)
                 .sort((a, b) => a.localeCompare(b));
 
             issuersPrivadaGlobal = unicos.map(nombre => ({ name: nombre }));
             console.log(`Se han cargado ${issuersPrivadaGlobal.length} emisores locales.`);
+        } else {
+            console.log("No se encontraron emisores todavía o la tabla está vacía.");
         }
     } catch (err) {
         console.error("Error al cargar emisores locales:", err);
