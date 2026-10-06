@@ -98,7 +98,7 @@ function renderizarPiezas(piezas) {
 
         let imagenesHtml = '';
 
-        // REQUISITO ESTRICTO: Si img_stored es true, se cargan del storage local. Si es false, no carga imagen y avisa para ejecutar Python.
+        // REQUISITO ESTRICTO: Si img_stored es true, se cargan del storage local. Si es false, aviso para ejecutar Python.
         if (imgStored) {
             let imgAnversoUrl = '';
             let imgReversoUrl = '';
@@ -130,13 +130,8 @@ function renderizarPiezas(piezas) {
                 <h3 class="coin-title">[#${index + 1}] ${titulo}</h3>
                 <p class="coin-meta">
                     ID Numista: <strong>${numistaId}</strong> | Emisor: <strong>${emisor}</strong> | Años: <strong>${anios}</strong><br>
-                    Valor: <strong>${valor}</strong> | Estado Storage: <strong style="color: ${imgStored ? '#28a745' : '#ffc107'}">${imgStored ? 'Sincronizado' : 'Pendiente'}</strong>
+                    Valor: <strong>${valor}</strong>
                 </p>
-                <div style="margin-top: 10px;">
-                    <span style="font-size: 0.85rem; color: ${imgStored ? '#28a745' : '#ffc107'}; font-weight: bold;">
-                        ${imgStored ? '● En Colección (Con Imágenes)' : '⏳ Pendiente de proceso local'}
-                    </span>
-                </div>
             </div>
         `;
 
