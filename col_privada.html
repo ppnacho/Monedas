@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colección Privada - Gestión Numista</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Cabecera -->
+        <header class="app-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div>
+                <h1>Colección Privada</h1>
+                <p>Monedas y piezas guardadas en tu base de datos local</p>
+            </div>
+            <div>
+                <a href="index.html" class="btn-primary" style="text-decoration: none; padding: 8px 16px; background-color: #6c757d; display: inline-block;">Volver al Buscador</a>
+            </div>
+        </header>
+
+        <!-- Filtros Rápidos o Buscador Interno de la Colección -->
+        <main>
+            <section class="search-card">
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="filterPrivada">Filtrar en tu colección:</label>
+                        <input type="text" id="filterPrivada" placeholder="Busca por título, ID o emisor en tu colección...">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Contenedor de Estado / Carga -->
+            <div id="loadingPrivada" class="loading-state hidden">
+                <div class="spinner"></div>
+                <p>Cargando tu colección privada...</p>
+            </div>
+
+            <!-- Contenedor de Resultados de la Colección -->
+            <section id="resultsPrivada" class="results-grid">
+                <!-- Las piezas guardadas se inyectarán aquí dinámicamente -->
+            </section>
+        </main>
+    </div>
+
+    <!-- Script Principal de la Colección Privada -->
+    <script type="module" src="assets/js/col_privada.js"></script>
+</body>
+</html>
