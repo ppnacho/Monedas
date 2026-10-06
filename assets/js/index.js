@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const btnColeccionPrivada = document.getElementById('btnColeccionPrivada');
+    if (btnColeccionPrivada) {
+        btnColeccionPrivada.addEventListener('click', () => {
+            window.location.href = 'col_privada.html';
+        });
+    }
+
     inicializarAutocompletadoEmisor();
 });
 
