@@ -31,9 +31,12 @@
                         </div>
 
                         <!-- Emisor / País -->
-                        <div class="form-group">
+                        <div class="filter-group">
                             <label for="issuerPrivada">País / Emisor:</label>
-                            <input type="text" id="issuerPrivada" placeholder="Ej. España, Francia...">
+                            <input type="text" id="issuerPrivada" list="issuerListOptions" placeholder="Escribe o selecciona país..." autocomplete="off">
+                            <datalist id="issuerListOptions">
+                                <!-- Se rellenará dinámicamente con los emisores únicos de la base de datos -->
+                            </datalist>
                         </div>
 
                         <!-- Año -->
